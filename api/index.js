@@ -1,312 +1,3 @@
-// import express from "express";
-// import http from "http";
-// import { WebSocketServer } from "ws";
-// import cors from "cors";
-// const app = express();
-// const server = http.createServer(app);
-// const wss = new WebSocketServer({ server });
-// let tagcooldown = false;
-// app.use(express.static("public"));
-// app.use(cors({ origin: "*" }));
-// // Game state
-// let gameTime = 30;
-// let gameInterval;
-// let gameRunning = false;
-// let players = {};
-// let taggerId = null;
-// const GAME_DURATION = 60;
-// const CANVAS_WIDTH = 800;
-// const CANVAS_HEIGHT = 600;
-// const PLAYER_SIZE = 30;
-
-// function getRandomColor() {
-//   const colors = [
-//     "#3498db",
-//     "#2ecc71",
-//     "#9b59b6",
-//     "#f1c40f",
-//     "#e67e22",
-//     "#1abc9c",
-//   ];
-//   return colors[Math.floor(Math.random() * colors.length)];
-// }
-
-// wss.on("connection", (ws) => {
-//   const id = Math.random().toString(36).slice(2);
-
-//   players[id] = {
-//     x: Math.random() * (CANVAS_WIDTH - PLAYER_SIZE * 2) + PLAYER_SIZE,
-//     y: Math.random() * (CANVAS_HEIGHT - PLAYER_SIZE * 2) + PLAYER_SIZE,
-//     color: getRandomColor(),
-//     ws,
-//     name: "Player",
-//     score: 0,
-//   };
-
-//   if (!taggerId) {
-//     taggerId = id;
-//     players[id].color = "#e74c3c";
-//   }
-
-//   ws.send(
-//     JSON.stringify({
-//       type: "init",
-//       id,
-//       players: sanitizePlayers(players),
-//       taggerId,
-//       gameRunning,
-//       gameTime,
-//       canvasWidth: CANVAS_WIDTH,
-//       canvasHeight: CANVAS_HEIGHT,
-//     })
-//   );
-
-//   broadcast(
-//     {
-//       type: "newPlayer",
-//       id,
-//       data: sanitizePlayer(players[id]),
-//     },
-//     id
-//   );
-
-//   ws.on("message", (msg) => {
-//     try {
-//       const data = JSON.parse(msg);
-
-//       if (data.type === "start") {
-//         console.log(
-//           `Player requested game start. Players: ${
-//             Object.keys(players).length
-//           }, Game running: ${gameRunning}`
-//         );
-//         if (Object.keys(players).length >= 2 && !gameRunning) {
-//           startGame();
-//         } else if (gameRunning) {
-//           ws.send(
-//             JSON.stringify({
-//               type: "notification",
-//               message: "Game is already in progress",
-//             })
-//           );
-//         } else {
-//           ws.send(
-//             JSON.stringify({
-//               type: "notification",
-//               message: "Need at least 2 players to start",
-//             })
-//           );
-//         }
-//         return;
-//       }
-
-//       if (data.type === "setName") {
-//         if (players[id]) {
-//           const sanitizedName = (data.name || "Player").substring(0, 15).trim();
-//           players[id].name = sanitizedName || "Player";
-//           broadcast({
-//             type: "playerUpdate",
-//             id,
-//             data: sanitizePlayer(players[id]),
-//           });
-//         }
-//         return;
-//       }
-
-//       if (data.type === "move" && players[id]) {
-//         players[id].x = Math.max(
-//           PLAYER_SIZE,
-//           Math.min(CANVAS_WIDTH - PLAYER_SIZE, data.x)
-//         );
-//         players[id].y = Math.max(
-//           PLAYER_SIZE,
-//           Math.min(CANVAS_HEIGHT - PLAYER_SIZE, data.y)
-//         );
-
-//         if (id === taggerId && gameRunning) {
-//           for (let pid in players) {
-//             if (pid !== taggerId) {
-//               const dx = players[pid].x - players[id].x;
-//               const dy = players[pid].y - players[id].y;
-//               const distance = Math.hypot(dx, dy);
-
-//               if (distance < PLAYER_SIZE * 1.5 && !tagcooldown) {
-//                 players[taggerId].color = getRandomColor();
-//                 players[taggerId].score += 1;
-//                 taggerId = pid;
-//                 players[pid].color = "#e74c3c";
-
-//                 broadcast({
-//                   type: "tagUpdate",
-//                   previousTagger: id,
-//                   taggerId,
-//                   players: sanitizePlayers(players),
-//                 });
-
-//                 broadcast({
-//                   type: "tagged",
-//                   tagger: players[id].name,
-//                   tagged: players[pid].name,
-//                 });
-//                 tagcooldown = true;
-
-//                 setTimeout(() => {
-//                   tagcooldown = false;
-//                 }, 10000);
-//                 break;
-//               }
-//             }
-//           }
-//         }
-
-//         broadcast({
-//           type: "playerMoved",
-//           id,
-//           data: sanitizePlayer(players[id]),
-//         });
-//       }
-//     } catch (error) {
-//       console.error("Error processing message:", error);
-//     }
-//   });
-
-//   ws.on("close", () => {
-//     delete players[id];
-
-//     if (taggerId === id) {
-//       const playerIds = Object.keys(players);
-//       if (playerIds.length > 0) {
-//         taggerId = playerIds[0];
-//         players[taggerId].color = "#e74c3c";
-//         broadcast({
-//           type: "tagUpdate",
-//           previousTagger: id,
-//           taggerId,
-//           players: sanitizePlayers(players),
-//         });
-//       } else {
-//         taggerId = null;
-
-//         if (gameRunning) {
-//           endGame("Not enough players");
-//         }
-//       }
-//     }
-
-//     broadcast({ type: "playerDisconnected", id });
-
-//     // End game if less than 2 players
-//     if (gameRunning && Object.keys(players).length < 2) {
-//       endGame("Not enough players");
-//     }
-//   });
-// });
-
-// function sanitizePlayer(player) {
-//   const { ws, ...cleanPlayer } = player;
-//   return cleanPlayer;
-// }
-
-// function sanitizePlayers(players) {
-//   const cleanPlayers = {};
-//   for (const id in players) {
-//     cleanPlayers[id] = sanitizePlayer(players[id]);
-//   }
-//   return cleanPlayers;
-// }
-
-// function broadcast(data, excludeId = null) {
-//   const str = JSON.stringify(data);
-
-//   for (let id in players) {
-//     if (id !== excludeId) {
-//       try {
-//         players[id].ws.send(str);
-//       } catch (error) {
-//         console.error(`Error sending to player ${id}:`, error);
-//       }
-//     }
-//   }
-// }
-
-// function startGame() {
-//   if (gameRunning) return;
-
-//   gameRunning = true;
-//   gameTime = GAME_DURATION;
-
-//   for (let id in players) {
-//     players[id].score = 0;
-//   }
-
-//   const playerIds = Object.keys(players);
-//   taggerId = playerIds[Math.floor(Math.random() * playerIds.length)];
-
-//   for (let id in players) {
-//     players[id].color = id === taggerId ? "#e74c3c" : getRandomColor();
-//   }
-
-//   broadcast({
-//     type: "gameStarted",
-//     taggerId,
-//     time: gameTime,
-//     players: sanitizePlayers(players),
-//   });
-
-//   gameInterval = setInterval(() => {
-//     gameTime--;
-
-//     broadcast({ type: "timer", time: gameTime });
-
-//     if (gameTime <= 0) {
-//       endGame("Time's up");
-//     }
-//   }, 1000);
-// }
-
-// function endGame(reason) {
-//   clearInterval(gameInterval);
-
-//   if (!gameRunning) return;
-//   gameRunning = false;
-
-//   const scores = {};
-//   for (let id in players) {
-//     scores[id] = {
-//       name: players[id].name,
-//       score: players[id].score,
-//     };
-//   }
-
-//   let highestScore = -1;
-//   let winners = [];
-
-//   for (let id in scores) {
-//     if (scores[id].score > highestScore) {
-//       highestScore = scores[id].score;
-//       winners = [id];
-//     } else if (scores[id].score === highestScore) {
-//       winners.push(id);
-//     }
-//   }
-
-//   broadcast({
-//     type: "gameOver",
-//     reason,
-//     scores,
-//     winners,
-//     winnerNames: winners.map((id) => players[id]?.name || "Unknown"),
-//   });
-
-//   gameTime = GAME_DURATION;
-// }
-
-// // Start the server
-// const PORT = process.env.PORT || 3000;
-// server.listen(PORT, () =>
-//   console.log(`Server running on http://localhost:${PORT}`)
-// );
-
 import express from "express";
 import http from "http";
 import { WebSocketServer } from "ws";
@@ -317,10 +8,8 @@ const wss = new WebSocketServer({ server });
 app.use(express.static("public"));
 app.use(cors({ origin: "*" }));
 
-// Game state - organized by rooms
 const rooms = {};
 
-// Constants
 const GAME_DURATION = 60;
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
@@ -338,7 +27,6 @@ function getRandomColor() {
   return colors[Math.floor(Math.random() * colors.length)];
 }
 
-// Generate a random room code
 function generateRoomCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
@@ -374,7 +62,6 @@ wss.on("connection", (ws) => {
 
         playerRoom = roomCode;
 
-        // Add the player to the room as host
         rooms[roomCode].players[playerId] = {
           x: Math.random() * (CANVAS_WIDTH - PLAYER_SIZE * 2) + PLAYER_SIZE,
           y: Math.random() * (CANVAS_HEIGHT - PLAYER_SIZE * 2) + PLAYER_SIZE,
@@ -459,7 +146,6 @@ wss.on("connection", (ws) => {
           })
         );
 
-        // Notify other players about the new player
         broadcastToRoom(
           roomCode,
           {
@@ -597,10 +283,14 @@ wss.on("connection", (ws) => {
         }
         return;
       }
+      if (data.type === "sound") {
+        if (rooms[playerRoom].players[playerId]) {
+          broadcastToRoom(playerRoom, { type: "sound", id: data.id }, playerId);
+        }
+        return;
+      }
 
-      // Handle player movement
       if (data.type === "move" && rooms[playerRoom].players[playerId]) {
-        // Update position
         rooms[playerRoom].players[playerId].x = Math.max(
           PLAYER_SIZE,
           Math.min(CANVAS_WIDTH - PLAYER_SIZE, data.x)
@@ -610,7 +300,6 @@ wss.on("connection", (ws) => {
           Math.min(CANVAS_HEIGHT - PLAYER_SIZE, data.y)
         );
 
-        // Handle tagging
         if (
           playerId === rooms[playerRoom].taggerId &&
           rooms[playerRoom].gameRunning
@@ -654,17 +343,15 @@ wss.on("connection", (ws) => {
 
                 setTimeout(() => {
                   if (rooms[playerRoom]) {
-                    // Check if room still exists
                     rooms[playerRoom].tagcooldown = false;
                   }
-                }, 1000); // 1 second cooldown
+                }, 1000);
                 break;
               }
             }
           }
         }
 
-        // Broadcast movement
         broadcastToRoom(playerRoom, {
           type: "playerMoved",
           id: playerId,
@@ -811,7 +498,6 @@ function startGame(roomCode) {
   rooms[roomCode].taggerId =
     playerIds[Math.floor(Math.random() * playerIds.length)];
 
-  // Set colors
   for (let id in rooms[roomCode].players) {
     rooms[roomCode].players[id].color =
       id === rooms[roomCode].taggerId ? "#e74c3c" : getRandomColor();

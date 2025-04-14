@@ -1,4 +1,3 @@
-
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const startBtn = document.getElementById("startBtn");
@@ -24,7 +23,6 @@ const joinRoomBtn = document.getElementById("joinRoomBtn");
 const currentRoomCode = document.getElementById("current-room-code");
 const copyCodeBtn = document.getElementById("copy-code-btn");
 
-
 const kickPlayerModal = document.getElementById("kickPlayerModal");
 const kickPlayersList = document.getElementById("kickPlayersList");
 const confirmKickBtn = document.getElementById("confirmKickBtn");
@@ -43,7 +41,7 @@ let lastUpdateTime = 0;
 let isHost = false;
 let currentRoom = null;
 let selectedPlayerToKick = null;
-
+let chatcool = false;
 const PLAYER_SIZE = 30;
 const FRAME_RATE = 60;
 const UPDATE_INTERVAL = 1000 / FRAME_RATE;
@@ -69,7 +67,7 @@ function initApp() {
   welcomeScreen.classList.remove("hidden");
 
   gameScreen.classList.add("hidden");
-
+  createSoundPanel();
   createNameInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter" && createNameInput.value.trim()) {
       createRoom();
@@ -230,7 +228,6 @@ function confirmKickPlayer() {
   selectedPlayerToKick = null;
 }
 
-// Connect to WebSocket server
 function connectToServer(callback) {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = `${protocol}//${window.location.host}`;
@@ -333,6 +330,10 @@ function handleMessage(msg) {
         if (players[data.id]) {
           players[data.id] = data.data;
         }
+        break;
+
+      case "sound":
+        playSound(data.id);
         break;
 
       case "playerUpdate":
@@ -488,7 +489,6 @@ function handleGameOver(data) {
   scoresHtml += "</table>";
   gameOverScores.innerHTML = scoresHtml;
 
-  // Display winner message
   if (data.winners.length === 1) {
     const winnerId = data.winners[0];
     const isMe = winnerId === myId;
@@ -972,15 +972,18 @@ function showNotification(message, duration = 3000) {
 
 function playSound(type) {
   const sounds = {
-    tag: "data:audio/wav;base64,UklGRiQDAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQADAACBhYqFbF1fdJKrqYhyeJGTZ0ZQh7TQtH5cT3avn2peaZG2x72SZ0lvenNYY4OhudC/n3ZkbX11WVJkd6XF1ap4TnOVh1hKa5aovZFxXWF5gWBYYn2UprCwoXdpa3+AalpddYmdr7CkhGhrdH9xXltugo2aqJ2KcnN8gHtpW1tzhZqopJB6aXCAdWhYWXKHnKyolntpbHp4aV5hfJCfrqeSeGdwe4BsXVlre5SepZJ6Z3J8fWhbXWt+lKKmjXlucHZ1aWFoc4qYoKKNdGhzgm9nXGF5jZyjl4BtcHpwZ19nfI+Zn5J6cH6BdWNaXG6KlZuVh3R6gXFeXWZ3iJSdmYN6gIF4Z1tcaX6KmJmMiJKbkW1XW2p6hYuUkouBe3+BdFRNXnmMm5y7tbBtYG2EhW9gXXuMkZjHqGpthZCIaDIaMVzE2MCVa3GFi2ouKUdni5yfr5iJcXGQi2cqFyEhXLPUwqKAdXdpQjMyPU1hf5CinpmvqW0uLkF0Z3mSiq6qVlaArKWIXUVKTF9rd5mgn3RpcJ2TVVJigVplZ5Cnn4+WhWlYTmR/eIKKkZKMdm2CgGtQU2JybYObrauYgmpyh3tYPEdhX2qGnqGXjG5gYoF7ZVp3jouKjZiOhYFybWNadX16gIuSlpCDfWlpbm1jXmx4g4yWmZCCeXl+d2lgaoCVrL2umXUyNWlsdXR/gIGEhYF3cXFvbnt/fHx8d0QxQGt9eGhlXl9gX2FkaWZlanSFo6GJgn56fXJpbW53dXJ3en+ChIaGioiJfG9zdnRycrCxsLlwMTE+QUlPl4dxZmZjVkpMUl5iZXJ9h4mJk6imfWRwcmtjYGmDiX94fnlvdnFCYZGOc5KYFhFQhK2TVFWUY15cXV9dXmBcWXONjZqzrYBiY2hcP0RUgaiiUVZ8d2RnTk9UWGRuho6Uk4qFfHp9gYJ6bGRiZ3l/gomFfXhxaWuCfWtgYGNrdIOPlJOLgX57fn5xYFRPVmh4gpOZnJ2YhHdtbjsnLDo+Yk9FTVVNN0M+",
-    gameStart:
-      "data:audio/wav;base64,UklGRmQEAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YUAEAABsbGxsbGxsbGxsbGxsbGx2dnZ2dnZ2dnZ2dnZ2dnaCgoKCgoKCgoKCgoKCgoKNjY2NjY2NjY2NjY2NjY2YmJiYmJiYmJiYmJiYmJijo6Ojo6Ojo6Ojo6Ojo6Ourq6urq6urq6urq6urq65ubm5ubm5ubm5ubm5ubm5xMTExMTExMTExMTExMTExcXFxcXFxcXFxcXFxcXFxcXFwcHBwcHBwcHBwcHBwcHBvb29vb29vb29vb29vb29uLi4uLi4uLi4uLi4uLi4s7Ozs7Ozs7Ozs7Ozs7Ozrq6urq6urq6urq6urq6uqqqqqqqqqqqqqqqqqqqqqqurq6urq6urq6urq6urq6utra2tra2tra2tra2tra2tra2tra2tra2tra2tra2trK2trKysrKysrKysrKysrKuqqqqqqqqqqqqqqqqqqqmpqampqampqampqampqaioqKioqKioqKioqKioqKhoaGhoaGhoaGhoaGhoaGfn5+fn5+fn5+fn5+fn5+dnZ2dnZ2dnZ2dnZ2dnZ2cnJycnJycnJycnJycnJyampqampqampqampqampqampqampqampqampqampqa////////////////////xcXFxcXFxcXFxcXFxcXFxdXV1dXV1dXV1dXV1dXV1eLi4uLi4uLi4uLi4uLi4urq6urq6urq6urq6urq6ur29vb29vb29vb29vb29vYCAgICAgICAgICAgICAgIKCgoKCgoKCgoKCgoKCgoKDg4ODg4ODg4ODg4ODg4OFhYWFhYWFhYWFhYWFhYWEhISEhISEhISEhISEhISCgoKCgoKCgoKCgoKCgoKBgYGBgYGBgYGBgYGBgYF/f39/f39/f39/f39/f39+fn5+fn5+fn5+fn5+fn58fHx8fHx8fHx8fHx8fHx7e3t7e3t7e3t7e3t7e3t5eXl5eXl5eXl5eXl5eXl4eHh4eHh4eHh4eHh4eHh2dnZ2dnZ2dnZ2dnZ2dnZ1dXV1dXV1dXV1dXV1dXV0dHR0dHR0dHR0dHR0dHRzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N0dHR0dHR0dHR0dHR0dHR1dXV1dXV1dXV1dXV1dXV2dnZ2dnZ2dnZ2dnZ2dnZ4eHh4eHh4eHh4eHh4eHh6enp6enp6enp6enp6enp8fHx8fHx8fHx8fHx8fHx+fn5+fn5+fn5+fn5+fn6AgICAgICAgICAgICAgICCgoKCgoKCgoKCgoKCgoKEhISEhISEhISEhISEhISGhoaGhoaGhoaGhoaGhoaIiIiIiIiIiIiIiIiIiIiKioqKioqKioqKioqKioqMjIyMjIyMjIyMjIyMjIyOjo6Ojo6Ojo6Ojo6Ojo6QkJCQkJCQkJCQkJCQkJCSkpKSkpKSkpKSkpKSkpKUlJSUlJSUlJSUlJSUlJSWlpaWlpaWlpaWlpaWlpaYmJiYmJiYmJiYmJiYmJiZmZmZmZmZmZmZmZmZmZmampqampqampqampqampqampqampqampqampqampqZmZmZmZmZmZmZmZmZmZk=",
-    win: "data:audio/wav;base64,UklGRvQDAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YdADAABQUFdpZVpXaXVzaWJkdHptZHB2b2p4c29ydGtzb3lyf3RmcpCBYG+VgWN7jH9sjXtpiot/cYV6doOEdHR3fYSAcnmXg1Rfi6hyaWRoWDlYhJVZMWSRmYd6aFRYoIkpKnWMi2UkO4SZiU5Pc4R4XkVwfUkzartTM7JzQXWGOUahWUZBpLhIDoKHZE1oYWdtdFlPbXVPVW94XmJpb2NcZWJ0fl9RanKTjVBaiZh9bGZmYYKAP0mRhltee4GBcFRlko5RTJ9fO4iYgIeOPTXIkiE8pIpcNWODcGVKRJRvdJhgNmGemTZFpHtVfZRjNGSahmdvWlBZVFp6eGNsZUxjbGKAjXhTcnZrd6WqiEZvmpFjYoRnQHKHjIVXPIKiiWM8XYWhiUhsqGk1hqWJZYcZSnusZ0ZrihJu55tTJ5WnKnLEjUNdfWoyZLSWNlV+hG93Uyg60r1eHXuxVZG4ZQ2bw3AmR3eSY11kYERZZoOJcEFVnmdgxLBAF7V9EFfJgFx7XzFC03g7lZtXJLlsFT+5Yjd4oVkcwcFLH7SabyaIUkqIb0xdxJZfJ8CXMEWleDhehXo5WIFfOohvfG9cLn3+vUkQ9WkWrKsyJZ5oPo5oQGxYUmBVTUpSZ3NvUi5IXIWGbk9xgnlvk4RkKlZrYpCXdTU2SlVle3RlUkVLXoGDYztFXWp6g3NRMU1wko50QE6BgF9SZEY0TmuFglVFXXJoX2hhPjhJZXuDZj5HZYeFcVI7TXSah2o/RlBWWWRcQjI+V3N/aDtAWWxygntjOjpkl5ZtMzNbanl4ZEU0RGqJimw/TFlfYmheSjg/SnJ8Zz5GWmZxf31xUTo+Z5iZbTEuWHeCfmo9Lk96mYZcLjhXY2ptXD8uQF97f2EzQF1ufYmGfUsvQ4OkkVkiL1t0h4BtQiFAeJuOYy4nS2p3cFw8KD5eeoRiMjpZb4GKioJrQTZYkJ6OXSstVXKMi3lUJyd1r6dTHSdWfoREYH9hWWhvRUo7GmOpuFU1",
-    lose: "data:audio/wav;base64,UklGRvQCAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YdACAAB3fn2DgnNyd3yCiop8dXaDhIiIfnV3f4OIgnx2eIGEiId8dXiChYmIfHV3goSIh3x1d4GEiIZ7dHaCg4eGe3R2gYOGhXp0dYCChYV6c3WAgoWFenN1f4KFhHlydX+ChYR5cnV/goWDeHF0foGEg3dxdH2Bg4J3cHN9gYOCdnBzfICCgXVvc36AgYF1b3J9gIGBdG5yfYCBgHRucX1/gIBzbXF8f4B/cm1wfH+AfnJtcHt/f35xbG98fn99cGxufH5/fXBrbXt+fn1va2x7fX59bmtren19fG5qa3p9fXxtaWp6fHx7bWlqeXx8e21panhzTjc4UWqIpLitjGBMQEJciZ2Rd1ZMUWNXSWR5b2BpZFBBcIN2SFFfTVF+lXRCTnOLh2lkfIJvXFeIpm4rQXJzWmSDfmVZZ1U1V3yre0pIU01mjIlpWF9xbVljn61sOVSDe1ZtlH1XVnBcQ2WOlm5EX3lkU2Rxc2Beakt1oKBnNlyNh2NbhJdpTWdnWWRvYlpigolubpKTamJ+lnVccohwU3GXhl1Zh353XW6BUUW13ZosPrzETiOo33svWNGkOzNIH1nJpGI8Mz9GlYdUKEZsaYNXMDN4W0LLvF0EYaleDFCNXRg8e2w9f+OzQg6Lz3saSbeMOC5ccFwqS5BpP1xtVj1doGw3b7SMRj5wg1w2YZ+PV0WEk2hMcYBhP46qbCpYmnNAU4RzWU5dUXGMjW9jfWtaf4Z1Y2xXb4qYg16Ab3iEemxxZ2iGi316Z3BzfH57dXJyd36Be3p3c3N6fX16d3V0d3t9e3h2dnZ5fHx6d3Z2eHt8enl3d3d5e3t6eHd3eHp7enl3d3h6e3p5eHh4enp6eXh4eHl6enl4eHh5enp5eHd4eXl6eXh3d3l5enl4d3d5eXp5eHd3eXl6eXh3d3l5enl4eHh5eXp5eHh4eXl6eXl4eHl5enl5eHh5eXp5eXl5eXl6",
-    youreIt:
-      "data:audio/wav;base64,UklGRrQCAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YZACAABMTExMTExMTExMTExMUFBQUFBQUFBQUFBQUFBUVFRUVFRUVFRUVFRUVFRYWFhYWFhYWFhYWFhYWFxcXFxcXFxcXFxcXFxcYGBgYGBgYGBgYGBgYGBkZGRkZGRkZGRkZGRkZGRoaGhoaGhoaGhoaGhoaGxsbGxsbGxsbGxsbGxsbHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwbGxsbGxsbGxsbGxsbGxoaGhoaGhoaGhoaGhoaGRkZGRkZGRkZGRkZGRkYGBgYGBgYGBgYGBgYGBcXFxcXFxcXFxcXFxcXFhYWFhYWFhYWFhYWFhYVFRUVFRUVFRUVFRUVFRQUFBQUFBQUFBQUFBQUExMTExMTExMTExMTExMTExMTExMTExMTExMTExMVFRUVFRUVFRUVFRUVFRcXFxcXFxcXFxcXFxcXFxkZGRkZGRkZGRkZGRkZGRsbGxsbGxsbGxsbGxsbGx0dHR0dHR0dHR0dHR0dHR8fHx8fHx8fHx8fHx8fISEhISEhISEhISEhISEhIiIiIiIiIiIiIiIiIiIjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyLi4uLi4uLi4uLi4uLi4uIiIiIiIiIiIiIiIiIiIeHh4eHh4eHh4eHh4eHh4ODg4ODg4ODg4ODg4ODg3t7e3t7e3t7e3t7e3t7enp6enp6enp6enp6enp6eHh4eHh4eHh4eHh4eHh4enp6enp6enp6enp6enp6",
-  };
+    tag: "/sounds/spongbob.mp3",
+    gameStart: "/sounds/amongus.mp3",
+    win: "/sounds/onepiece.mp3",
 
+    youreIt: "/sounds/imposter.mp3",
+    tung: "/sounds/tung.mp3",
+    bombardi: "/sounds/bombardi.mp3",
+    tolate: "/sounds/itsnottolate.mp3",
+    lose: "/sounds/lose.mp3",
+    omg: "/sounds/omg.mp3",
+    getout: "/sounds/getout.mp3",
+  };
   const sound = sounds[type];
 
   if (sound) {
@@ -996,6 +999,128 @@ function initAudio() {
   } catch (e) {
     console.log("Web Audio API not supported in this browser");
   }
+}
+function createSoundPanel() {
+  const soundPanel = document.createElement("div");
+  soundPanel.className = "sound-panel";
+  soundPanel.innerHTML = '<div class="sound-panel-header">Sounds</div>';
+
+  const soundsContainer = document.createElement("div");
+  soundsContainer.className = "sounds-container";
+
+  const availableSounds = [
+    { id: "tung", name: "TungTung", file: "/sounds/tung.mp3" },
+    { id: "bombardi", name: "Bombardi", file: "/sounds/bombardi.mp3" },
+    { id: "tolate", name: "its late", file: "/sounds/itsnottolate.mp3" },
+
+    { id: "omg", name: "OMG", file: "/sounds/omg.mp3" },
+    { id: "getout", name: "Get out", file: "/sounds/getout.mp3" },
+  ];
+
+  availableSounds.forEach((sound) => {
+    const soundButton = document.createElement("button");
+    soundButton.className = "sound-button";
+    soundButton.textContent = sound.name;
+    soundButton.dataset.sound = sound.id;
+
+    soundButton.addEventListener("click", () => {
+      if (!chatcool) {
+        if (ws) {
+          ws.send(
+            JSON.stringify({
+              type: "sound",
+              id: sound.id,
+            })
+          );
+        }
+
+        playSound(sound.id);
+        chatcool = true;
+        setTimeout(() => {
+          chatcool = false;
+        }, 5000);
+      }
+    });
+
+    soundsContainer.appendChild(soundButton);
+  });
+
+  const toggleButton = document.createElement("button");
+  toggleButton.className = "sound-panel-toggle";
+  toggleButton.textContent = "🔊";
+  toggleButton.title = "Toggle Sound Panel";
+  toggleButton.addEventListener("click", () => {
+    soundPanel.classList.toggle("expanded");
+  });
+
+  soundPanel.appendChild(soundsContainer);
+  document.body.appendChild(soundPanel);
+  document.body.appendChild(toggleButton);
+
+  const style = document.createElement("style");
+  style.textContent = `
+    .sound-panel {
+      position: fixed;
+      bottom: 20px;
+      right: -200px;
+      width: 180px;
+      background: rgba(0, 0, 0, 0.8);
+      border-radius: 10px 0 0 10px;
+      color: white;
+      padding: 10px;
+      transition: right 0.3s;
+      z-index: 1000;
+    }
+    
+    .sound-panel.expanded {
+      right: 0;
+    }
+    
+    .sound-panel-header {
+      font-weight: bold;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    
+    .sounds-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .sound-button {
+      background: #3498db;
+      border: none;
+      color: white;
+      padding: 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .sound-button:hover {
+      background: #2980b9;
+    }
+    
+    .sound-panel-toggle {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #3498db;
+      color: white;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      z-index: 1001;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  `;
+  document.head.appendChild(style);
 }
 
 function createCustomSound(type) {
@@ -1042,25 +1167,18 @@ function createCustomSound(type) {
   }
 }
 
-// Line 717
 document.addEventListener("DOMContentLoaded", () => {
   initAudio();
 
-  // Initialize the game
   initApp();
 
-  // Adjust canvas size on window load
   adjustCanvasSize();
 });
 
-// Line 726
-// Handle visibility change to pause/resume game
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    // Pause game or reduce updates when tab is not visible
     console.log("Game paused - tab not visible");
   } else {
-    // Resume game when tab is visible again
     console.log("Game resumed - tab visible");
     adjustCanvasSize();
   }
