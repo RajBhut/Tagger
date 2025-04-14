@@ -1061,7 +1061,6 @@ function createMobileControls() {
   rightBtn.className = "control-btn right-btn";
   rightBtn.textContent = "→";
 
-  // Create down button
   const downBtn = document.createElement("button");
   downBtn.id = "down-btn";
   downBtn.className = "control-btn down-btn";
