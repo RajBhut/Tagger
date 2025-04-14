@@ -349,7 +349,7 @@ function handleMessage(msg) {
 
       case "tagged":
         showNotification(`${data.tagger} tagged ${data.tagged}!`);
-        playSound("tag");
+
         break;
 
       case "playerDisconnected":
@@ -983,6 +983,7 @@ function playSound(type) {
     lose: "/sounds/lose.mp3",
     omg: "/sounds/omg.mp3",
     getout: "/sounds/getout.mp3",
+    bb: "/sounds/bb.mp3",
   };
   const sound = sounds[type];
 
@@ -1012,7 +1013,7 @@ function createSoundPanel() {
     { id: "tung", name: "TungTung", file: "/sounds/tung.mp3" },
     { id: "bombardi", name: "Bombardi", file: "/sounds/bombardi.mp3" },
     { id: "tolate", name: "its late", file: "/sounds/itsnottolate.mp3" },
-
+    { id: "bb", name: "BB", file: "/sounds/bb.mp3" },
     { id: "omg", name: "OMG", file: "/sounds/omg.mp3" },
     { id: "getout", name: "Get out", file: "/sounds/getout.mp3" },
   ];
