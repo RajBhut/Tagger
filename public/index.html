@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -11,7 +13,51 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div class="game-container">
+    <div id="welcome-screen" class="welcome-container">
+      <h1>Tagger</h1>
+      <p class="tagline">A multiplayer tag game</p>
+
+      <div class="welcome-options">
+        <div class="option-card">
+          <h2>Create Room</h2>
+          <div class="input-group">
+            <input
+              type="text"
+              id="createName"
+              placeholder="Your name"
+              maxlength="15"
+            />
+            <button id="createRoomBtn" class="btn-primary">Create</button>
+          </div>
+        </div>
+
+        <div class="option-card">
+          <h2>Join Room</h2>
+          <div class="input-group">
+            <input
+              type="text"
+              id="joinName"
+              placeholder="Your name"
+              maxlength="15"
+            />
+            <input
+              type="text"
+              id="roomCode"
+              placeholder="Room code"
+              maxlength="6"
+            />
+            <button id="joinRoomBtn" class="btn-primary">Join</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="game-screen" class="game-container hidden">
+      <div class="room-info">
+        <span>Room: <span id="current-room-code">-</span></span>
+        <button id="copy-code-btn" class="btn-small">Copy</button>
+      </div>
+
       <div class="game-header">
         <h1>Tagger</h1>
         <div class="game-info">
@@ -48,6 +94,7 @@
       <div id="notification" class="notification hidden"></div>
     </div>
 
+    <!-- Game over modal -->
     <div id="gameOver" class="modal hidden">
       <div class="modal-content">
         <h2>Game Over</h2>
@@ -55,6 +102,19 @@
         <div id="gameOverScores"></div>
         <div id="winner"></div>
         <button id="closeModal" class="btn-primary">OK</button>
+      </div>
+    </div>
+
+    <!-- Player kick modal (for host) -->
+    <div id="kickPlayerModal" class="modal hidden">
+      <div class="modal-content">
+        <h2>Remove Player</h2>
+        <p>Select a player to remove from the game:</p>
+        <div id="kickPlayersList" class="kick-players-list"></div>
+        <div class="modal-buttons">
+          <button id="confirmKickBtn" class="btn-danger">Remove</button>
+          <button id="cancelKickBtn" class="btn-secondary">Cancel</button>
+        </div>
       </div>
     </div>
 
@@ -68,6 +128,13 @@
         <li>The player with the most points at the end wins!</li>
       </ul>
     </div>
+
+    <footer class="credits">
+      <p>
+        Crafted with 💻 by
+        <a href="https://github.com/RajBhut" target="_blank">RajBhut</a>
+      </p>
+    </footer>
 
     <script src="script.js"></script>
   </body>

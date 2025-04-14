@@ -1,28 +1,141 @@
 * {
-  box-sizing: border-box;
   margin: 0;
   padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
 }
 
 body {
-  font-family: "Poppins", sans-serif;
-  background-color: #f5f7fa;
-  color: #333;
-  line-height: 1.6;
   padding: 20px;
-
-  display: flex;
-  justify-content: center;
+  background: linear-gradient(135deg, #3a4452, #2c3e50);
+  color: #ecf0f1;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: center;
 }
+
 .modal.hidden {
   display: none !important;
 }
+
+/* Welcome Screen */
+#welcome-screen {
+  width: 100%;
+  max-width: 800px;
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  padding: 30px;
+  margin-bottom: 20px;
+}
+
+.welcome-title {
+  font-size: 2.2rem;
+  color: #2c3e50;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.welcome-subtitle {
+  font-size: 1.2rem;
+  color: #7f8c8d;
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+.tabs {
+  display: flex;
+  margin-bottom: 20px;
+}
+
+.tab {
+  flex: 1;
+  padding: 15px;
+  text-align: center;
+  background-color: #ecf0f1;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.tab.active {
+  background-color: #3498db;
+  color: white;
+}
+
+.tab-content {
+  display: none;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 0 0 8px 8px;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.input-group {
+  margin-bottom: 20px;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 5px;
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 12px 15px;
+  border: 2px solid #bdc3c7;
+  border-radius: 4px;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.input-group input:focus {
+  border-color: #3498db;
+}
+
+.room-code-display {
+  background-color: #f1f1f1;
+  padding: 15px;
+  border-radius: 5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+}
+
+#current-room-code {
+  font-size: 1.5rem;
+  font-weight: bold;
+  letter-spacing: 2px;
+  color: #2c3e50;
+}
+
+#copy-code-btn {
+  background-color: #27ae60;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#copy-code-btn:hover {
+  background-color: #219653;
+}
+
+/* Game Screen */
 .game-container {
   width: 100%;
-
+  max-width: 1000px;
   background-color: white;
   border-radius: 10px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
@@ -159,52 +272,62 @@ button:active {
   padding: 8px 12px;
   border-radius: 4px;
   background-color: white;
-  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  position: relative;
 }
 
 .player-color {
-  width: 15px;
-  height: 15px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   margin-right: 8px;
 }
 
 .player-name {
   font-weight: 600;
-}
-
-.tagger {
-  background-color: #fff3f3;
+  margin-right: 8px;
 }
 
 .player-score {
-  margin-left: 8px;
-  font-weight: 600;
-  color: #3498db;
+  background-color: #f1c40f;
+  color: #fff;
+  font-weight: bold;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 12px;
+}
+
+.tagger {
+  background-color: #f9e6e6;
+  border: 2px solid #e74c3c;
 }
 
 .you {
+  background-color: #e6f9f2;
   border: 2px solid #3498db;
 }
 
 .notification {
   position: fixed;
   top: 20px;
-  right: 20px;
-  padding: 10px 15px;
-  background-color: #f39c12;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100px);
+  background: rgba(52, 152, 219, 0.9);
   color: white;
-  border-radius: 4px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  z-index: 100;
-  opacity: 0;
-  transform: translateY(-20px);
-  transition: opacity 0.3s, transform 0.3s;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-weight: 600;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  transition: transform 0.3s ease-out;
 }
 
 .notification.show {
-  opacity: 1;
-  transform: translateY(0);
+  transform: translateX(-50%) translateY(0);
 }
 
 .hidden {
@@ -227,14 +350,14 @@ button:active {
 .modal-content {
   background-color: white;
   padding: 30px;
-  border-radius: 8px;
+  border-radius: 10px;
+  text-align: center;
   max-width: 500px;
   width: 90%;
-  text-align: center;
+  box-shadow: 0 5px 30px rgba(0, 0, 0, 0.3);
 }
 
 .modal h2 {
-  color: #2c3e50;
   margin-bottom: 20px;
 }
 
@@ -286,6 +409,7 @@ button:active {
     width: 100%;
   }
 }
+
 /* Mobile controls */
 .mobile-controls {
   display: none;
@@ -312,22 +436,305 @@ button:active {
   width: 60px;
   height: 60px;
   background-color: rgba(255, 255, 255, 0.3);
-  border: 2px solid #fff;
+  border: 2px solid rgb(72, 70, 70);
   border-radius: 12px;
   font-size: 24px;
-  border: 2px solid rgb(72, 70, 70);
   color: white;
   display: flex;
   justify-content: center;
   align-items: center;
   margin: 4px;
   user-select: none;
-
+  -webkit-tap-highlight-color: transparent;
   cursor: pointer;
+}
+
+.control-btn:active {
+  background-color: rgba(255, 255, 255, 0.5);
 }
 
 @media (max-width: 768px) {
   .mobile-controls {
     display: block;
   }
+}
+
+/* Kick player modal */
+#kickPlayerModal .modal-content {
+  background-color: #f8f9fa;
+  max-width: 400px;
+}
+
+#kickPlayerModal h3 {
+  color: #2c3e50;
+  margin-bottom: 20px;
+}
+
+.kick-players-list {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kick-player-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 15px;
+  background-color: white;
+  border-radius: 5px;
+  border: 1px solid #e5e7eb;
+  transition: background-color 0.2s;
+}
+
+.kick-player-item.selected {
+  background-color: #ffecec;
+  border-color: #e74c3c;
+}
+
+.kick-player-item .player-color {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  margin-right: 10px;
+}
+
+.kick-player-item .kick-btn {
+  background-color: #e74c3c;
+  color: white;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  font-size: 18px;
+  padding: 0;
+  margin-left: 10px;
+}
+
+.kick-btn {
+  background-color: #e74c3c;
+  color: white;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  font-size: 16px;
+  padding: 0;
+  margin-left: 8px;
+}
+
+.kick-btn:hover {
+  background-color: #c0392b;
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+#confirmKickBtn {
+  background-color: #e74c3c;
+}
+
+#confirmKickBtn:hover {
+  background-color: #c0392b;
+}
+
+.score-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 15px 0;
+}
+
+.score-table th,
+.score-table td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.winner-row {
+  background-color: #e6f9e2;
+  font-weight: bold;
+}
+
+.me-row {
+  background-color: #e6f1f9;
+}
+
+/* Cool animated credits section */
+.credits {
+  text-align: center;
+  margin-top: 30px;
+  padding: 15px;
+  background: linear-gradient(135deg, #1a1c2c, #3d3d6b);
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+
+.credits::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: shine 3s infinite;
+}
+
+.credits p {
+  font-size: 1.1rem;
+  margin: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.credits a {
+  color: #5eead4;
+  text-decoration: none;
+  font-weight: bold;
+  padding: 0 5px;
+  position: relative;
+  display: inline-block;
+  transform: perspective(1px) translateZ(0);
+  transition: transform 0.3s;
+}
+
+.credits a:hover {
+  transform: scale(1.1);
+  text-shadow: 0 0 10px #5eead4, 0 0 20px #5eead4;
+}
+
+.credits a::before {
+  content: "{ ";
+  opacity: 0;
+  transition: opacity 0.3s, transform 0.3s;
+  transform: translateX(10px);
+}
+
+.credits a::after {
+  content: " }";
+  opacity: 0;
+  transition: opacity 0.3s, transform 0.3s;
+  transform: translateX(-10px);
+}
+
+.credits a:hover::before,
+.credits a:hover::after {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@keyframes shine {
+  0% {
+    left: -100%;
+  }
+  50%,
+  100% {
+    left: 100%;
+  }
+}
+/* 1. Make status message more visible */
+#status-message {
+  color: #2563eb; /* Deeper blue for better contrast */
+  font-weight: 700; /* Make it bolder */
+}
+
+/* 2. Fix player name readability in player items */
+.player-name {
+  font-weight: 600;
+  margin-right: 8px;
+  color: #1e293b; /* Ensure dark text on light backgrounds */
+}
+
+/* 3. Fix game info text */
+.game-info {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 10px;
+  font-size: 1.2rem;
+  color: #334155; /* Darker color for better visibility */
+}
+
+/* 4. Fix instruction text */
+.instructions ul li {
+  color: #334155; /* Darker color for better visibility */
+  margin-bottom: 6px;
+}
+
+/* 5. Fix modal text */
+.modal-content {
+  background-color: white;
+  padding: 30px;
+  border-radius: 10px;
+  text-align: center;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 5px 30px rgba(0, 0, 0, 0.3);
+  color: #1e293b; /* Ensure text is visible */
+}
+
+/* 6. Improve kick player modal text */
+.kick-player-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 15px;
+  background-color: white;
+  border-radius: 5px;
+  border: 1px solid #e5e7eb;
+  transition: background-color 0.2s;
+  color: #1e293b; /* Ensure player names are visible */
+}
+
+.welcome-title {
+  font-size: 2.2rem;
+  color: #1e293b; /* Darker for better visibility */
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.tab {
+  flex: 1;
+  padding: 15px;
+  text-align: center;
+  background-color: #ecf0f1;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  font-weight: 600;
+  color: #334155; /* Ensure text is visible */
+  transition: all 0.3s;
+}
+
+/* 9. Improve notification text contrast */
+.notification {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100px);
+  background: rgba(37, 99, 235, 0.9); /* Darker blue for better contrast */
+  color: white;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-weight: 700; /* Bolder for better visibility */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  transition: transform 0.3s ease-out;
 }
