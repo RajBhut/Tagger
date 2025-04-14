@@ -1,11 +1,73 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
   <head>
-    <title>Multiplayer Tag</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Multiplayer Tag Game</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <button onclick="run()" id="b">Start</button>
-    <canvas id="gameCanvas" width="600" height="600"></canvas>
+    <div class="game-container">
+      <div class="game-header">
+        <h1>Multiplayer Tag</h1>
+        <div class="game-info">
+          <div class="timer">
+            <span id="timer-label">Time:</span>
+            <span id="timer-value">60</span>
+          </div>
+          <div id="status-message">Waiting for players...</div>
+        </div>
+      </div>
+
+      <div class="game-area">
+        <canvas id="gameCanvas"></canvas>
+      </div>
+
+      <div class="controls">
+        <div class="control-group">
+          <input
+            type="text"
+            id="playerName"
+            placeholder="Enter your name"
+            maxlength="15"
+          />
+          <button id="setNameBtn">Set Name</button>
+        </div>
+        <button id="startBtn" class="btn-primary">Start Game</button>
+      </div>
+
+      <div class="scoreboard">
+        <h2>Players</h2>
+        <div id="players-list"></div>
+      </div>
+
+      <div id="notification" class="notification hidden"></div>
+    </div>
+
+    <div id="gameOver" class="modal hidden">
+      <div class="modal-content">
+        <h2>Game Over</h2>
+        <div id="gameOverReason"></div>
+        <div id="gameOverScores"></div>
+        <div id="winner"></div>
+        <button id="closeModal" class="btn-primary">OK</button>
+      </div>
+    </div>
+
+    <div class="instructions">
+      <h3>How to Play:</h3>
+      <ul>
+        <li>Use arrow keys to move your player</li>
+        <li>If you are the tagger (red), chase and tag other players</li>
+        <li>If you tag someone, they become the new tagger</li>
+        <li>You get 1 point each time you tag someone</li>
+        <li>The player with the most points at the end wins!</li>
+      </ul>
+    </div>
 
     <script src="script.js"></script>
   </body>
