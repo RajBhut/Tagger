@@ -20,7 +20,6 @@ body {
   display: none !important;
 }
 
-/* Welcome Screen */
 #welcome-screen {
   width: 100%;
   max-width: 800px;
@@ -737,4 +736,386 @@ button:active {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
   z-index: 1000;
   transition: transform 0.3s ease-out;
+}
+/* Welcome screen enhancements */
+.welcome-container {
+  text-align: center;
+  color: #1e293b;
+  width: 100%;
+  max-width: 800px;
+}
+
+.tagline {
+  font-size: 1.2rem;
+  color: #64748b;
+  margin-bottom: 30px;
+}
+
+.welcome-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.option-card {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.option-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+.option-card h2 {
+  color: #1e293b;
+  margin-bottom: 15px;
+  font-size: 1.5rem;
+}
+
+/* Room info styling */
+.room-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f1f5f9;
+  padding: 12px 15px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  border-left: 4px solid #3b82f6;
+}
+
+.room-info span {
+  font-weight: 600;
+  color: #334155;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  background-color: #3b82f6;
+}
+
+.btn-small:hover {
+  background-color: #2563eb;
+}
+
+.btn-secondary {
+  background-color: #64748b;
+}
+
+.btn-secondary:hover {
+  background-color: #475569;
+}
+
+.btn-danger {
+  background-color: #ef4444;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #dc2626;
+}
+
+/* Game UI improvements */
+.game-container {
+  position: relative;
+  border-top: 5px solid #3b82f6;
+  color: #1e293b;
+}
+
+/* Game canvas enhancements */
+#gameCanvas {
+  border: 4px solid #334155;
+  border-radius: 6px;
+  background-image: radial-gradient(circle, #f1f5f970 1px, transparent 1px);
+  background-size: 40px 40px;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1), inset 0 0 20px rgba(0, 0, 0, 0.05);
+}
+
+/* Instructions enhancements */
+.instructions {
+  background-color: rgba(255, 255, 255, 0.9);
+  border-left: 4px solid #f59e0b;
+  margin-top: 20px;
+}
+
+.instructions h3 {
+  color: #f59e0b;
+  font-size: 1.3rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 8px;
+}
+
+.instructions ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.instructions ul li {
+  position: relative;
+  padding-left: 25px;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.instructions ul li:before {
+  content: "🎮";
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* Enhanced responsive design */
+@media (max-width: 768px) {
+  .welcome-options {
+    grid-template-columns: 1fr;
+  }
+
+  .room-info {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+
+  .game-info {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .instructions ul li {
+    font-size: 0.95rem;
+  }
+}
+
+/* Game elements with animation */
+.scoreboard {
+  position: relative;
+  overflow: hidden;
+  border-left: 4px solid #10b981;
+}
+
+.scoreboard:after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 5px;
+  height: 100%;
+  background: linear-gradient(to bottom, #10b981, transparent);
+}
+
+/* Create better animation for game timer */
+.timer {
+  display: inline-block;
+  padding: 5px 10px;
+  background-color: #f9fafb;
+  border-radius: 4px;
+  border: 2px solid #ef4444;
+  color: #ef4444;
+  animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+  from {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  to {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+}
+
+/* Fix input group and button styles in welcome screen */
+#welcome-screen .input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#welcome-screen .input-group input {
+  border: 2px solid #e2e8f0;
+  background-color: #f8fafc;
+  transition: all 0.2s ease;
+}
+
+#welcome-screen .input-group input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+#welcome-screen .btn-primary {
+  width: 100%;
+  background: linear-gradient(to right, #3b82f6, #2563eb);
+  border-radius: 6px;
+  font-weight: 600;
+  padding: 12px;
+  transition: all 0.3s ease;
+}
+
+#welcome-screen .btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+/* Game elements with 3D effects */
+.scoreboard h2 {
+  position: relative;
+}
+
+.scoreboard h2:after {
+  content: "";
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  width: 50px;
+  height: 3px;
+  background-color: #10b981;
+}
+
+/* Game theme enhancement */
+body {
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite;
+}
+
+@keyframes gradientBG {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Game over modal enhancement */
+#gameOver .modal-content {
+  border-top: 5px solid #f59e0b;
+  position: relative;
+  overflow: hidden;
+}
+
+#gameOver .modal-content:before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(to right, #f59e0b, #ef4444, #10b981);
+}
+
+/* Score table enhancement */
+.score-table {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.score-table th {
+  background-color: #f1f5f9;
+  color: #1e293b;
+  font-weight: 600;
+  padding: 12px;
+}
+
+/* Player item enhancement */
+.player-item {
+  transition: transform 0.2s ease;
+}
+
+.player-item:hover {
+  transform: translateY(-2px);
+}
+
+.player-item.tagger {
+  position: relative;
+}
+
+.player-item.tagger:after {
+  content: "👉";
+  position: absolute;
+  right: -15px;
+  animation: pointing 1s infinite alternate;
+}
+
+@keyframes pointing {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(5px);
+  }
+}
+/* Improve mobile touch controls */
+.control-btn {
+  width: 60px;
+  height: 60px;
+  background-color: rgba(52, 152, 219, 0.3);
+  border: 2px solid #2980b9;
+  border-radius: 12px;
+  font-size: 24px;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 8px;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.control-btn:after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.5);
+  opacity: 0;
+  border-radius: 100%;
+  transform: scale(1, 1) translate(-50%);
+  transform-origin: 50% 50%;
+}
+
+.control-btn:active:after {
+  animation: ripple 0.4s ease-out;
+  opacity: 1;
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0, 0);
+    opacity: 1;
+  }
+  20% {
+    transform: scale(25, 25);
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(40, 40);
+  }
+}
+
+.mobile-controls {
+  touch-action: none; /* Important - prevents browser handling of touch gestures */
+  position: relative;
+  z-index: 100;
+  margin-top: 30px;
+  padding: 15px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
 }

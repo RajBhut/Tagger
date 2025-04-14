@@ -307,7 +307,6 @@
 //   console.log(`Server running on http://localhost:${PORT}`)
 // );
 
-
 import express from "express";
 import http from "http";
 import { WebSocketServer } from "ws";
@@ -329,8 +328,12 @@ const PLAYER_SIZE = 30;
 
 function getRandomColor() {
   const colors = [
-    "#3498db", "#2ecc71", "#9b59b6", 
-    "#f1c40f", "#e67e22", "#1abc9c",
+    "#3498db",
+    "#2ecc71",
+    "#9b59b6",
+    "#f1c40f",
+    "#e67e22",
+    "#1abc9c",
   ];
   return colors[Math.floor(Math.random() * colors.length)];
 }
@@ -343,17 +346,19 @@ function generateRoomCode() {
 wss.on("connection", (ws) => {
   const playerId = Math.random().toString(36).slice(2);
   let playerRoom = null;
-  
+
   // Initialize the connection
-  ws.send(JSON.stringify({
-    type: "welcome",
-    playerId,
-  }));
+  ws.send(
+    JSON.stringify({
+      type: "welcome",
+      playerId,
+    })
+  );
 
   ws.on("message", (msg) => {
     try {
       const data = JSON.parse(msg);
-      
+
       // Handle room creation
       if (data.type === "createRoom") {
         const roomCode = generateRoomCode();
@@ -364,11 +369,11 @@ wss.on("connection", (ws) => {
           gameTime: GAME_DURATION,
           tagcooldown: false,
           hostId: playerId,
-          gameInterval: null
+          gameInterval: null,
         };
-        
+
         playerRoom = roomCode;
-        
+
         // Add the player to the room as host
         rooms[roomCode].players[playerId] = {
           x: Math.random() * (CANVAS_WIDTH - PLAYER_SIZE * 2) + PLAYER_SIZE,
@@ -377,43 +382,49 @@ wss.on("connection", (ws) => {
           ws,
           name: data.name || "Host",
           score: 0,
-          isHost: true
+          isHost: true,
         };
-        
+
         // Confirm room creation to client
-        ws.send(JSON.stringify({
-          type: "roomCreated",
-          roomCode,
-          isHost: true
-        }));
-        
+        ws.send(
+          JSON.stringify({
+            type: "roomCreated",
+            roomCode,
+            isHost: true,
+          })
+        );
+
         return;
       }
-      
+
       // Handle room joining
       if (data.type === "joinRoom") {
         const roomCode = data.roomCode;
-        
+
         // Check if room exists
         if (!rooms[roomCode]) {
-          ws.send(JSON.stringify({
-            type: "error",
-            message: "Room not found"
-          }));
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              message: "Room not found",
+            })
+          );
           return;
         }
-        
+
         // Check if game is in progress
         if (rooms[roomCode].gameRunning) {
-          ws.send(JSON.stringify({
-            type: "error",
-            message: "Game already in progress"
-          }));
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              message: "Game already in progress",
+            })
+          );
           return;
         }
-        
+
         playerRoom = roomCode;
-        
+
         // Add player to room
         rooms[roomCode].players[playerId] = {
           x: Math.random() * (CANVAS_WIDTH - PLAYER_SIZE * 2) + PLAYER_SIZE,
@@ -422,148 +433,171 @@ wss.on("connection", (ws) => {
           ws,
           name: data.name || "Player",
           score: 0,
-          isHost: false
+          isHost: false,
         };
-        
+
         // Set tagger if this is first player
         if (!rooms[roomCode].taggerId) {
           rooms[roomCode].taggerId = playerId;
           rooms[roomCode].players[playerId].color = "#e74c3c";
         }
-        
+
         // Send room state to the new player
-        ws.send(JSON.stringify({
-          type: "init",
-          id: playerId,
-          roomCode,
-          players: sanitizePlayers(rooms[roomCode].players),
-          taggerId: rooms[roomCode].taggerId,
-          gameRunning: rooms[roomCode].gameRunning,
-          gameTime: rooms[roomCode].gameTime,
-          canvasWidth: CANVAS_WIDTH,
-          canvasHeight: CANVAS_HEIGHT,
-          isHost: false,
-          hostId: rooms[roomCode].hostId
-        }));
-        
+        ws.send(
+          JSON.stringify({
+            type: "init",
+            id: playerId,
+            roomCode,
+            players: sanitizePlayers(rooms[roomCode].players),
+            taggerId: rooms[roomCode].taggerId,
+            gameRunning: rooms[roomCode].gameRunning,
+            gameTime: rooms[roomCode].gameTime,
+            canvasWidth: CANVAS_WIDTH,
+            canvasHeight: CANVAS_HEIGHT,
+            isHost: false,
+            hostId: rooms[roomCode].hostId,
+          })
+        );
+
         // Notify other players about the new player
-        broadcastToRoom(roomCode, {
-          type: "newPlayer",
-          id: playerId,
-          data: sanitizePlayer(rooms[roomCode].players[playerId])
-        }, playerId);
-        
+        broadcastToRoom(
+          roomCode,
+          {
+            type: "newPlayer",
+            id: playerId,
+            data: sanitizePlayer(rooms[roomCode].players[playerId]),
+          },
+          playerId
+        );
+
         return;
       }
-      
+
       // Handle kick player (host only)
       if (data.type === "kickPlayer") {
         if (!playerRoom || !rooms[playerRoom]) return;
-        
+
         // Verify sender is host
         if (playerId !== rooms[playerRoom].hostId) {
-          ws.send(JSON.stringify({
-            type: "error",
-            message: "Only the host can kick players"
-          }));
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              message: "Only the host can kick players",
+            })
+          );
           return;
         }
-        
+
         const targetId = data.playerId;
-        
+
         // Can't kick yourself
         if (targetId === playerId) {
-          ws.send(JSON.stringify({
-            type: "error",
-            message: "You can't kick yourself"
-          }));
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              message: "You can't kick yourself",
+            })
+          );
           return;
         }
-        
+
         // Check if target exists
         if (!rooms[playerRoom].players[targetId]) {
-          ws.send(JSON.stringify({
-            type: "error",
-            message: "Player not found"
-          }));
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              message: "Player not found",
+            })
+          );
           return;
         }
-        
+
         // Notify the player they've been kicked
         try {
-          rooms[playerRoom].players[targetId].ws.send(JSON.stringify({
-            type: "kicked",
-            message: "You've been removed from the game by the host"
-          }));
-          
+          rooms[playerRoom].players[targetId].ws.send(
+            JSON.stringify({
+              type: "kicked",
+              message: "You've been removed from the game by the host",
+            })
+          );
+
           // Close their connection
           rooms[playerRoom].players[targetId].ws.close();
         } catch (error) {
           console.log("Error notifying kicked player", error);
         }
-        
+
         // Handle tagger reassignment if needed
         if (rooms[playerRoom].taggerId === targetId) {
           handlePlayerLeaving(targetId, playerRoom);
         } else {
           // Remove player from room
           delete rooms[playerRoom].players[targetId];
-          
+
           // Notify remaining players
           broadcastToRoom(playerRoom, {
             type: "playerKicked",
-            id: targetId
+            id: targetId,
           });
         }
-        
+
         return;
       }
-      
+
       // Ensure player is in a room for all other requests
       if (!playerRoom || !rooms[playerRoom]) return;
-      
+
       // Handle game start
       if (data.type === "start") {
         // Only host can start the game
         if (playerId !== rooms[playerRoom].hostId) {
-          ws.send(JSON.stringify({
-            type: "error",
-            message: "Only the host can start the game"
-          }));
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              message: "Only the host can start the game",
+            })
+          );
           return;
         }
-        
-        if (Object.keys(rooms[playerRoom].players).length >= 2 && !rooms[playerRoom].gameRunning) {
+
+        if (
+          Object.keys(rooms[playerRoom].players).length >= 2 &&
+          !rooms[playerRoom].gameRunning
+        ) {
           startGame(playerRoom);
         } else if (rooms[playerRoom].gameRunning) {
-          ws.send(JSON.stringify({
-            type: "notification",
-            message: "Game is already in progress"
-          }));
+          ws.send(
+            JSON.stringify({
+              type: "notification",
+              message: "Game is already in progress",
+            })
+          );
         } else {
-          ws.send(JSON.stringify({
-            type: "notification",
-            message: "Need at least 2 players to start"
-          }));
+          ws.send(
+            JSON.stringify({
+              type: "notification",
+              message: "Need at least 2 players to start",
+            })
+          );
         }
         return;
       }
-      
+
       // Handle name setting
       if (data.type === "setName") {
         if (rooms[playerRoom].players[playerId]) {
           const sanitizedName = (data.name || "Player").substring(0, 15).trim();
           rooms[playerRoom].players[playerId].name = sanitizedName || "Player";
-          
+
           broadcastToRoom(playerRoom, {
             type: "playerUpdate",
             id: playerId,
-            data: sanitizePlayer(rooms[playerRoom].players[playerId])
+            data: sanitizePlayer(rooms[playerRoom].players[playerId]),
           });
         }
         return;
       }
-      
+
       // Handle player movement
       if (data.type === "move" && rooms[playerRoom].players[playerId]) {
         // Update position
@@ -575,60 +609,73 @@ wss.on("connection", (ws) => {
           PLAYER_SIZE,
           Math.min(CANVAS_HEIGHT - PLAYER_SIZE, data.y)
         );
-        
+
         // Handle tagging
-        if (playerId === rooms[playerRoom].taggerId && rooms[playerRoom].gameRunning) {
+        if (
+          playerId === rooms[playerRoom].taggerId &&
+          rooms[playerRoom].gameRunning
+        ) {
           for (let pid in rooms[playerRoom].players) {
             if (pid !== rooms[playerRoom].taggerId) {
-              const dx = rooms[playerRoom].players[pid].x - rooms[playerRoom].players[playerId].x;
-              const dy = rooms[playerRoom].players[pid].y - rooms[playerRoom].players[playerId].y;
+              const dx =
+                rooms[playerRoom].players[pid].x -
+                rooms[playerRoom].players[playerId].x;
+              const dy =
+                rooms[playerRoom].players[pid].y -
+                rooms[playerRoom].players[playerId].y;
               const distance = Math.hypot(dx, dy);
-              
-              if (distance < PLAYER_SIZE * 1.5 && !rooms[playerRoom].tagcooldown) {
-                rooms[playerRoom].players[rooms[playerRoom].taggerId].color = getRandomColor();
-                rooms[playerRoom].players[rooms[playerRoom].taggerId].score += 1;
+
+              if (
+                distance < PLAYER_SIZE * 1.5 &&
+                !rooms[playerRoom].tagcooldown
+              ) {
+                rooms[playerRoom].players[rooms[playerRoom].taggerId].color =
+                  getRandomColor();
+                rooms[playerRoom].players[
+                  rooms[playerRoom].taggerId
+                ].score += 1;
                 rooms[playerRoom].taggerId = pid;
                 rooms[playerRoom].players[pid].color = "#e74c3c";
-                
+
                 broadcastToRoom(playerRoom, {
                   type: "tagUpdate",
                   previousTagger: playerId,
                   taggerId: rooms[playerRoom].taggerId,
-                  players: sanitizePlayers(rooms[playerRoom].players)
+                  players: sanitizePlayers(rooms[playerRoom].players),
                 });
-                
+
                 broadcastToRoom(playerRoom, {
                   type: "tagged",
                   tagger: rooms[playerRoom].players[playerId].name,
-                  tagged: rooms[playerRoom].players[pid].name
+                  tagged: rooms[playerRoom].players[pid].name,
                 });
-                
+
                 rooms[playerRoom].tagcooldown = true;
-                
+
                 setTimeout(() => {
-                  if (rooms[playerRoom]) {  // Check if room still exists
+                  if (rooms[playerRoom]) {
+                    // Check if room still exists
                     rooms[playerRoom].tagcooldown = false;
                   }
-                }, 1000);  // 1 second cooldown
+                }, 1000); // 1 second cooldown
                 break;
               }
             }
           }
         }
-        
+
         // Broadcast movement
         broadcastToRoom(playerRoom, {
           type: "playerMoved",
           id: playerId,
-          data: sanitizePlayer(rooms[playerRoom].players[playerId])
+          data: sanitizePlayer(rooms[playerRoom].players[playerId]),
         });
       }
-      
     } catch (error) {
       console.error("Error processing message:", error);
     }
   });
-  
+
   ws.on("close", () => {
     if (playerRoom && rooms[playerRoom]) {
       handlePlayerLeaving(playerId, playerRoom);
@@ -639,22 +686,24 @@ wss.on("connection", (ws) => {
 // Handle player leaving game
 function handlePlayerLeaving(playerId, roomCode) {
   if (!rooms[roomCode] || !rooms[roomCode].players[playerId]) return;
-  
+
   // If player was host, assign a new host or close room
   if (playerId === rooms[roomCode].hostId) {
-    const remainingPlayers = Object.keys(rooms[roomCode].players).filter(id => id !== playerId);
-    
+    const remainingPlayers = Object.keys(rooms[roomCode].players).filter(
+      (id) => id !== playerId
+    );
+
     if (remainingPlayers.length > 0) {
       // Assign new host
       const newHostId = remainingPlayers[0];
       rooms[roomCode].hostId = newHostId;
       rooms[roomCode].players[newHostId].isHost = true;
-      
+
       // Notify players about new host
       broadcastToRoom(roomCode, {
         type: "newHost",
         id: newHostId,
-        name: rooms[roomCode].players[newHostId].name
+        name: rooms[roomCode].players[newHostId].name,
       });
     } else {
       // No players left, clean up the room
@@ -665,44 +714,49 @@ function handlePlayerLeaving(playerId, roomCode) {
       return;
     }
   }
-  
+
   // If player was the tagger, assign a new tagger
   if (rooms[roomCode].taggerId === playerId) {
-    const playerIds = Object.keys(rooms[roomCode].players).filter(id => id !== playerId);
-    
+    const playerIds = Object.keys(rooms[roomCode].players).filter(
+      (id) => id !== playerId
+    );
+
     if (playerIds.length > 0) {
       rooms[roomCode].taggerId = playerIds[0];
       rooms[roomCode].players[playerIds[0]].color = "#e74c3c";
-      
+
       broadcastToRoom(roomCode, {
         type: "tagUpdate",
         previousTagger: playerId,
         taggerId: rooms[roomCode].taggerId,
-        players: sanitizePlayers(rooms[roomCode].players)
+        players: sanitizePlayers(rooms[roomCode].players),
       });
     } else {
       rooms[roomCode].taggerId = null;
-      
+
       if (rooms[roomCode].gameRunning) {
         endGame(roomCode, "Not enough players");
       }
     }
   }
-  
+
   // Remove player from room
   delete rooms[roomCode].players[playerId];
-  
+
   // Notify other players
   broadcastToRoom(roomCode, {
-    type: "playerDisconnected", 
-    id: playerId
+    type: "playerDisconnected",
+    id: playerId,
   });
-  
+
   // End game if less than 2 players
-  if (rooms[roomCode].gameRunning && Object.keys(rooms[roomCode].players).length < 2) {
+  if (
+    rooms[roomCode].gameRunning &&
+    Object.keys(rooms[roomCode].players).length < 2
+  ) {
     endGame(roomCode, "Not enough players");
   }
-  
+
   // Clean up empty rooms
   if (Object.keys(rooms[roomCode].players).length === 0) {
     if (rooms[roomCode].gameInterval) {
@@ -727,9 +781,9 @@ function sanitizePlayers(players) {
 
 function broadcastToRoom(roomCode, data, excludeId = null) {
   if (!rooms[roomCode]) return;
-  
+
   const str = JSON.stringify(data);
-  
+
   for (let id in rooms[roomCode].players) {
     if (id !== excludeId) {
       try {
@@ -743,43 +797,47 @@ function broadcastToRoom(roomCode, data, excludeId = null) {
 
 function startGame(roomCode) {
   if (!rooms[roomCode] || rooms[roomCode].gameRunning) return;
-  
+
   rooms[roomCode].gameRunning = true;
   rooms[roomCode].gameTime = GAME_DURATION;
-  
+
   // Reset scores
   for (let id in rooms[roomCode].players) {
     rooms[roomCode].players[id].score = 0;
   }
-  
+
   // Choose random tagger
   const playerIds = Object.keys(rooms[roomCode].players);
-  rooms[roomCode].taggerId = playerIds[Math.floor(Math.random() * playerIds.length)];
-  
+  rooms[roomCode].taggerId =
+    playerIds[Math.floor(Math.random() * playerIds.length)];
+
   // Set colors
   for (let id in rooms[roomCode].players) {
-    rooms[roomCode].players[id].color = id === rooms[roomCode].taggerId ? "#e74c3c" : getRandomColor();
+    rooms[roomCode].players[id].color =
+      id === rooms[roomCode].taggerId ? "#e74c3c" : getRandomColor();
   }
-  
-  // Notify players
+
   broadcastToRoom(roomCode, {
     type: "gameStarted",
     taggerId: rooms[roomCode].taggerId,
     time: rooms[roomCode].gameTime,
-    players: sanitizePlayers(rooms[roomCode].players)
+    players: sanitizePlayers(rooms[roomCode].players),
   });
-  
+
   // Start game timer
   rooms[roomCode].gameInterval = setInterval(() => {
     if (!rooms[roomCode]) {
       clearInterval(rooms[roomCode].gameInterval);
       return;
     }
-    
+
     rooms[roomCode].gameTime--;
-    
-    broadcastToRoom(roomCode, { type: "timer", time: rooms[roomCode].gameTime });
-    
+
+    broadcastToRoom(roomCode, {
+      type: "timer",
+      time: rooms[roomCode].gameTime,
+    });
+
     if (rooms[roomCode].gameTime <= 0) {
       endGame(roomCode, "Time's up");
     }
@@ -788,10 +846,10 @@ function startGame(roomCode) {
 
 function endGame(roomCode, reason) {
   if (!rooms[roomCode] || !rooms[roomCode].gameRunning) return;
-  
+
   clearInterval(rooms[roomCode].gameInterval);
   rooms[roomCode].gameRunning = false;
-  
+
   // Calculate scores
   const scores = {};
   for (let id in rooms[roomCode].players) {
@@ -800,11 +858,11 @@ function endGame(roomCode, reason) {
       score: rooms[roomCode].players[id].score,
     };
   }
-  
+
   // Find winner(s)
   let highestScore = -1;
   let winners = [];
-  
+
   for (let id in scores) {
     if (scores[id].score > highestScore) {
       highestScore = scores[id].score;
@@ -813,15 +871,17 @@ function endGame(roomCode, reason) {
       winners.push(id);
     }
   }
-  
+
   broadcastToRoom(roomCode, {
     type: "gameOver",
     reason,
     scores,
     winners,
-    winnerNames: winners.map((id) => rooms[roomCode].players[id]?.name || "Unknown"),
+    winnerNames: winners.map(
+      (id) => rooms[roomCode].players[id]?.name || "Unknown"
+    ),
   });
-  
+
   rooms[roomCode].gameTime = GAME_DURATION;
 }
 
