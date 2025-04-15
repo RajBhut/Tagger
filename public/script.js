@@ -319,7 +319,7 @@ function handleMessage(msg) {
             showNotification(`You've been frozen! (${data.duration}s)`);
           }
         }
-        console.log(boostedPlayers);
+
         break;
 
       case "boostEnded":
@@ -890,22 +890,7 @@ function render() {
 
     if (boostedPlayers[id]) {
       const boostType = boostedPlayers[id].type;
-
-      if (boostType === "speed") {
-        for (let i = 0; i < 5; i++) {
-          const alpha = 0.7 - i * 0.15;
-          ctx.beginPath();
-          ctx.fillStyle = `rgba(255, 255, 0, ${alpha})`;
-          ctx.arc(
-            player.x - Math.random() * 40,
-            player.y - Math.random() * 40,
-            3 + Math.random() * 5,
-            0,
-            Math.PI * 2
-          );
-          ctx.fill();
-        }
-      } else if (boostType === "shield") {
+      if (boostType === "shield") {
         ctx.beginPath();
         ctx.strokeStyle = "#8e44ad";
         ctx.lineWidth = 3;
