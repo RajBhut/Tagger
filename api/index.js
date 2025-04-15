@@ -289,6 +289,14 @@ wss.on("connection", (ws) => {
         }
         return;
       }
+      if (data.type === "msg") {
+        if (rooms[playerRoom].players[playerId]) {
+          broadcastToRoom(playerRoom, {
+            type: "msg",
+            data: `${rooms[playerRoom].players[playerId].name} : ${data.data}`,
+          });
+        }
+      }
 
       if (data.type === "move" && rooms[playerRoom].players[playerId]) {
         rooms[playerRoom].players[playerId].x = Math.max(

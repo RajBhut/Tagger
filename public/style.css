@@ -449,7 +449,8 @@ button:active {
 }
 
 .control-btn:active {
-  background-color: rgba(255, 255, 255, 0.5);
+  /* background-color: rgba(255, 255, 255, 0.9); */
+  background-color: black;
 }
 
 @media (max-width: 768px) {
@@ -929,7 +930,6 @@ button:active {
   }
 }
 
-/* Fix input group and button styles in welcome screen */
 #welcome-screen .input-group {
   display: flex;
   flex-direction: column;

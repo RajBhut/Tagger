@@ -27,7 +27,7 @@ const kickPlayerModal = document.getElementById("kickPlayerModal");
 const kickPlayersList = document.getElementById("kickPlayersList");
 const confirmKickBtn = document.getElementById("confirmKickBtn");
 const cancelKickBtn = document.getElementById("cancelKickBtn");
-
+const msginput = document.getElementById("msg");
 let ws;
 let players = {};
 let myId = null;
@@ -42,6 +42,7 @@ let isHost = false;
 let currentRoom = null;
 let selectedPlayerToKick = null;
 let chatcool = false;
+
 const PLAYER_SIZE = 30;
 const FRAME_RATE = 60;
 const UPDATE_INTERVAL = 1000 / FRAME_RATE;
@@ -159,11 +160,9 @@ function copyRoomCodeToClipboard() {
     });
 }
 
-// Open kick player modal
 function openKickPlayerModal() {
   if (!isHost) return;
 
-  // Populate list of players (exclude host)
   kickPlayersList.innerHTML = "";
 
   for (let id in players) {
@@ -213,7 +212,6 @@ function selectPlayerToKick(playerId) {
   });
 }
 
-// Confirm kick player
 function confirmKickPlayer() {
   if (!selectedPlayerToKick || !isHost) return;
 
@@ -291,6 +289,8 @@ function handleMessage(msg) {
       case "error":
         showNotification(data.message);
         break;
+      case "msg":
+        showNotification(data.data);
 
       case "init":
         myId = data.id;
@@ -304,15 +304,12 @@ function handleMessage(msg) {
         currentRoom = data.roomCode;
         currentRoomCode.textContent = data.roomCode;
 
-        // Update canvas dimensions
         canvas.width = canvasWidth;
         canvas.height = canvasHeight;
 
-        // Update UI
         timerValue.textContent = gameTime;
         updatePlayersList();
 
-        // Initialize game after joining room
         initGame();
 
         if (gameRunning) {
@@ -946,7 +943,6 @@ function adjustCanvasSize() {
   const container = canvas.parentElement;
   const containerWidth = container.clientWidth;
 
-  // Keep aspect ratio
   if (containerWidth < canvasWidth) {
     const scale = containerWidth / canvasWidth;
     canvas.style.width = `${containerWidth}px`;
@@ -1123,7 +1119,15 @@ function createSoundPanel() {
   `;
   document.head.appendChild(style);
 }
-
+function sendmsg() {
+  if (!chatcool) {
+    ws.send(JSON.stringify({ type: "msg", data: msginput.value.trim() }));
+    chatcool = true;
+    setTimeout(() => {
+      chatcool = false;
+    }, 3000);
+  }
+}
 function createCustomSound(type) {
   if (!audioContext) return;
 
