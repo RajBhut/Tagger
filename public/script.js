@@ -28,6 +28,7 @@ const kickPlayersList = document.getElementById("kickPlayersList");
 const confirmKickBtn = document.getElementById("confirmKickBtn");
 const cancelKickBtn = document.getElementById("cancelKickBtn");
 const msginput = document.getElementById("msg");
+
 let ws;
 let players = {};
 let myId = null;
@@ -42,7 +43,9 @@ let isHost = false;
 let currentRoom = null;
 let selectedPlayerToKick = null;
 let chatcool = false;
-
+let currentBooster = null;
+let boostedPlayers = {};
+const BOOSTER_SIZE = 20;
 const PLAYER_SIZE = 30;
 const FRAME_RATE = 60;
 const UPDATE_INTERVAL = 1000 / FRAME_RATE;
@@ -95,13 +98,11 @@ function initApp() {
     }
   });
 
-  // Force room code input to uppercase
   roomCodeInput.addEventListener("input", () => {
     roomCodeInput.value = roomCodeInput.value.toUpperCase();
   });
 }
 
-// Create a new game room
 function createRoom() {
   const name = createNameInput.value.trim();
   if (!name) {
@@ -119,7 +120,6 @@ function createRoom() {
   });
 }
 
-// Join an existing room
 function joinRoom() {
   const name = joinNameInput.value.trim();
   const roomCode = roomCodeInput.value.trim();
@@ -250,13 +250,10 @@ function connectToServer(callback) {
   ws.onmessage = handleMessage;
 }
 
-// Initialize the game
 function initGame() {
-  // Set canvas size
   canvas.width = canvasWidth;
   canvas.height = canvasHeight;
 
-  // Show game screen, hide welcome screen
   welcomeScreen.classList.add("hidden");
   gameScreen.classList.remove("hidden");
 
@@ -264,7 +261,6 @@ function initGame() {
   gameLoop();
 }
 
-// Handle incoming WebSocket messages
 function handleMessage(msg) {
   try {
     const data = JSON.parse(msg.data);
@@ -279,10 +275,8 @@ function handleMessage(msg) {
         currentRoomCode.textContent = data.roomCode;
         isHost = data.isHost;
 
-        // Pre-fill name field in game
         playerNameInput.value = createNameInput.value;
 
-        // Initialize game after room creation
         initGame();
         break;
 
@@ -291,6 +285,68 @@ function handleMessage(msg) {
         break;
       case "msg":
         showNotification(data.data);
+        break;
+      case "boosterSpawned":
+        currentBooster = data.booster;
+
+        playSound("powerup");
+        break;
+
+      case "boosterCollected":
+        currentBooster = null;
+        showNotification(
+          `${data.playerName} collected a ${data.boosterType} booster!`
+        );
+        playSound("powerup");
+        break;
+
+      case "boosterRemoved":
+        currentBooster = null;
+        break;
+
+      case "playerBoosted":
+        boostedPlayers[data.playerId] = {
+          type: data.boosterType,
+          endTime: Date.now() + data.duration * 1000,
+        };
+
+        if (data.playerId === myId) {
+          if (data.boosterType === "speed") {
+            showNotification(`Speed boost activated! (${data.duration}s)`);
+          } else if (data.boosterType === "shield") {
+            showNotification(`Shield activated! (${data.duration}s)`);
+          } else if (data.boosterType === "frozen") {
+            showNotification(`You've been frozen! (${data.duration}s)`);
+          }
+        }
+        console.log(boostedPlayers);
+        break;
+
+      case "boostEnded":
+        delete boostedPlayers[data.playerId];
+
+        if (data.playerId === myId) {
+          if (data.boosterType === "speed") {
+            showNotification("Speed boost ended");
+          } else if (data.boosterType === "shield") {
+            showNotification("Shield deactivated");
+          } else if (data.boosterType === "frozen") {
+            showNotification("You're unfrozen");
+          }
+        }
+        break;
+
+      case "massFreeze":
+        if (data.initiator !== myId && myId !== taggerId) {
+          showNotification(
+            `${players[data.initiator].name} froze everyone! (${
+              data.duration
+            }s)`
+          );
+        } else if (data.initiator === myId) {
+          showNotification(`You froze all players! (${data.duration}s)`);
+        }
+        break;
 
       case "init":
         myId = data.id;
@@ -407,43 +463,36 @@ function handleMessage(msg) {
   }
 }
 
-// Handle tag update
 function handleTagUpdate(data) {
   taggerId = data.taggerId;
 
   if (data.players) {
     players = data.players;
   } else {
-    // Just update colors if full player data not provided
     for (let id in players) {
       players[id].color = id === taggerId ? "#e74c3c" : players[id].color;
     }
   }
 
-  // Update UI
   updatePlayersList();
 
-  // Play sound and show notification if I'm the new tagger
   if (taggerId === myId) {
     showNotification("You are now IT! Chase other players!");
     playSound("youreIt");
   }
 }
 
-// Handle game started message
 function handleGameStarted(data) {
   gameRunning = true;
   gameTime = data.time;
   taggerId = data.taggerId;
   players = data.players;
 
-  // Update UI
   timerValue.textContent = gameTime;
   statusMessage.textContent = "Game in progress";
   startBtn.disabled = true;
   updatePlayersList();
 
-  // Show tagger notification
   if (taggerId === myId) {
     showNotification("You are IT! Chase other players!");
     playSound("gameStart");
@@ -453,20 +502,16 @@ function handleGameStarted(data) {
   }
 }
 
-// Handle game over message
 function handleGameOver(data) {
   gameRunning = false;
   startBtn.disabled = false;
   statusMessage.textContent = "Game over - Ready to start";
 
-  // Update modal content
   gameOverReason.textContent = data.reason;
 
-  // Display scores
   let scoresHtml =
     "<table class='score-table'><tr><th>Player</th><th>Score</th></tr>";
 
-  // Sort players by score
   const sortedPlayers = Object.entries(data.scores).sort(
     (a, b) => b[1].score - a[1].score
   );
@@ -506,13 +551,10 @@ function handleGameOver(data) {
     winnerElement.textContent = "No winners this time!";
   }
 
-  // Show modal
   gameOverModal.classList.remove("hidden");
 }
 
-// Set up event listeners
 function setupEventListeners() {
-  // Keyboard controls
   document.addEventListener("keydown", (e) => {
     keys[e.key] = true;
   });
@@ -546,57 +588,45 @@ function setupEventListeners() {
     }
   });
 
-  // Modal close button
   closeModalBtn.addEventListener("click", () => {
     gameOverModal.classList.add("hidden");
   });
 
-  // Create mobile control buttons dynamically
   createMobileControls();
 
-  // Window resize handler
   window.addEventListener("resize", adjustCanvasSize);
 }
 
-// Create mobile control buttons
 function createMobileControls() {
-  // Create the mobile controls container
   const mobileControls = document.createElement("div");
   mobileControls.className = "mobile-controls";
 
-  // Create the d-pad
   const dPad = document.createElement("div");
   dPad.className = "d-pad";
 
-  // Create up button
   const upBtn = document.createElement("button");
   upBtn.id = "up-btn";
   upBtn.className = "control-btn up-btn";
   upBtn.textContent = "↑";
 
-  // Create middle row for left and right buttons
   const middleRow = document.createElement("div");
   middleRow.className = "middle-row";
 
-  // Create left button
   const leftBtn = document.createElement("button");
   leftBtn.id = "left-btn";
   leftBtn.className = "control-btn left-btn";
   leftBtn.textContent = "←";
 
-  // Create right button
   const rightBtn = document.createElement("button");
   rightBtn.id = "right-btn";
   rightBtn.className = "control-btn right-btn";
   rightBtn.textContent = "→";
 
-  // Create down button
   const downBtn = document.createElement("button");
   downBtn.id = "down-btn";
   downBtn.className = "control-btn down-btn";
   downBtn.textContent = "↓";
 
-  // Assemble the d-pad
   middleRow.appendChild(leftBtn);
   middleRow.appendChild(rightBtn);
   dPad.appendChild(upBtn);
@@ -604,12 +634,9 @@ function createMobileControls() {
   dPad.appendChild(downBtn);
   mobileControls.appendChild(dPad);
 
-  // Add the controls to the game area
   const gameArea = document.querySelector(".game-area");
   gameArea.appendChild(mobileControls);
 
-  // Add event listeners for the buttons
-  // Up button
   upBtn.addEventListener("touchstart", (e) => {
     e.preventDefault();
     directionPressed.up = true;
@@ -645,7 +672,6 @@ function createMobileControls() {
     directionPressed.down = false;
   });
 
-  // Left button
   leftBtn.addEventListener("touchstart", (e) => {
     e.preventDefault();
     directionPressed.left = true;
@@ -663,7 +689,6 @@ function createMobileControls() {
     directionPressed.left = false;
   });
 
-  // Right button
   rightBtn.addEventListener("touchstart", (e) => {
     e.preventDefault();
     directionPressed.right = true;
@@ -682,7 +707,6 @@ function createMobileControls() {
   });
 }
 
-// Set player name
 function setPlayerName(name) {
   if (name && ws.readyState === WebSocket.OPEN) {
     ws.send(
@@ -697,7 +721,6 @@ function setPlayerName(name) {
   }
 }
 
-// Update the players list in the UI
 function updatePlayersList() {
   playersList.innerHTML = "";
 
@@ -726,7 +749,6 @@ function updatePlayersList() {
     scoreElement.className = "player-score";
     scoreElement.textContent = player.score !== undefined ? player.score : 0;
 
-    // Add kick button if I'm the host and this isn't me
     if (isHost && !isMe) {
       const kickBtn = document.createElement("button");
       kickBtn.className = "kick-btn";
@@ -746,11 +768,9 @@ function updatePlayersList() {
     playersList.appendChild(playerElement);
   }
 
-  // Show or hide the start button based on host status
   startBtn.style.display = isHost ? "block" : "none";
 }
 
-// Game loop
 function gameLoop(timestamp) {
   if (!lastUpdateTime) lastUpdateTime = timestamp;
   const deltaTime = timestamp - lastUpdateTime;
@@ -764,37 +784,43 @@ function gameLoop(timestamp) {
   requestAnimationFrame(gameLoop);
 }
 
-// Update game state
 function update() {
   if (!gameRunning || !myId || !players[myId]) return;
 
   let moved = false;
   let newX = players[myId].x;
   let newY = players[myId].y;
+  if (boostedPlayers[myId] && boostedPlayers[myId].type === "frozen") {
+    return;
+  }
+  let speed = movementSpeed;
+  if (
+    players[myId].speedboosted ||
+    (boostedPlayers[myId] && boostedPlayers[myId].type === "speed")
+  ) {
+    speed = movementSpeed * players[myId].sm;
+  }
 
-  // Handle keyboard movement
   if (keys["ArrowUp"] || keys["w"] || directionPressed.up) {
-    newY -= movementSpeed;
+    newY -= speed;
     moved = true;
   }
   if (keys["ArrowDown"] || keys["s"] || directionPressed.down) {
-    newY += movementSpeed;
+    newY += speed;
     moved = true;
   }
   if (keys["ArrowLeft"] || keys["a"] || directionPressed.left) {
-    newX -= movementSpeed;
+    newX -= speed;
     moved = true;
   }
   if (keys["ArrowRight"] || keys["d"] || directionPressed.right) {
-    newX += movementSpeed;
+    newX += speed;
     moved = true;
   }
 
-  // Apply boundary constraints
   newX = Math.max(PLAYER_SIZE, Math.min(canvasWidth - PLAYER_SIZE, newX));
   newY = Math.max(PLAYER_SIZE, Math.min(canvasHeight - PLAYER_SIZE, newY));
 
-  // Send movement to server if position changed
   if (moved && (newX !== players[myId].x || newY !== players[myId].y)) {
     players[myId].x = newX;
     players[myId].y = newY;
@@ -809,19 +835,41 @@ function update() {
   }
 }
 
-// Render game state
 function render() {
-  // Clear canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Draw background grid
   drawGrid();
 
-  // Draw players
+  if (currentBooster) {
+    ctx.beginPath();
+    ctx.fillStyle = currentBooster.color;
+    ctx.arc(currentBooster.x, currentBooster.y, BOOSTER_SIZE, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 14px Arial";
+    ctx.textAlign = "center";
+
+    let iconText = "?";
+    if (currentBooster.type === "speed") iconText = "⚡";
+    else if (currentBooster.type === "shield") iconText = "🛡️";
+    else if (currentBooster.type === "freeze") iconText = "❄️";
+
+    ctx.fillText(iconText, currentBooster.x, currentBooster.y + 5);
+
+    const pulseSize = 5 * Math.sin(Date.now() / 200) + BOOSTER_SIZE + 5;
+    ctx.beginPath();
+    ctx.strokeStyle = currentBooster.color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([3, 3]);
+    ctx.arc(currentBooster.x, currentBooster.y, pulseSize, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
   for (const id in players) {
     const player = players[id];
 
-    // Player shadow
     ctx.beginPath();
     ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
     ctx.ellipse(
@@ -835,11 +883,65 @@ function render() {
     );
     ctx.fill();
 
-    // Player body
     ctx.beginPath();
     ctx.fillStyle = player.color;
     ctx.arc(player.x, player.y, PLAYER_SIZE, 0, Math.PI * 2);
     ctx.fill();
+
+    if (boostedPlayers[id]) {
+      const boostType = boostedPlayers[id].type;
+
+      if (boostType === "speed") {
+        for (let i = 0; i < 5; i++) {
+          const alpha = 0.7 - i * 0.15;
+          ctx.beginPath();
+          ctx.fillStyle = `rgba(255, 255, 0, ${alpha})`;
+          ctx.arc(
+            player.x - Math.random() * 40,
+            player.y - Math.random() * 40,
+            3 + Math.random() * 5,
+            0,
+            Math.PI * 2
+          );
+          ctx.fill();
+        }
+      } else if (boostType === "shield") {
+        ctx.beginPath();
+        ctx.strokeStyle = "#8e44ad";
+        ctx.lineWidth = 3;
+        ctx.setLineDash([5, 5]);
+        ctx.arc(player.x, player.y, PLAYER_SIZE + 5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      } else if (boostType === "frozen") {
+        ctx.beginPath();
+        ctx.strokeStyle = "#00ffff";
+        ctx.lineWidth = 3;
+        ctx.arc(player.x, player.y, PLAYER_SIZE + 3, 0, Math.PI * 2);
+        ctx.stroke();
+
+        for (let i = 0; i < 4; i++) {
+          const angle = (Math.PI / 2) * i;
+          ctx.beginPath();
+          ctx.fillStyle = "#00ffff";
+          ctx.moveTo(
+            player.x + Math.cos(angle) * (PLAYER_SIZE + 5),
+            player.y + Math.sin(angle) * (PLAYER_SIZE + 5)
+          );
+          ctx.lineTo(
+            player.x + Math.cos(angle + 0.2) * (PLAYER_SIZE + 15),
+            player.y + Math.sin(angle + 0.2) * (PLAYER_SIZE + 15)
+          );
+          ctx.lineTo(
+            player.x + Math.cos(angle - 0.2) * (PLAYER_SIZE + 15),
+            player.y + Math.sin(angle - 0.2) * (PLAYER_SIZE + 15)
+          );
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+    }
+
     ctx.lineWidth = 2;
     ctx.strokeStyle = id === myId ? "#2c3e50" : "#7f8c8d";
     ctx.stroke();
@@ -850,13 +952,11 @@ function render() {
     ctx.textAlign = "center";
     ctx.fillText(player.name, player.x, player.y + 4);
 
-    // Tagger indicator
     if (id === taggerId) {
       ctx.font = "bold 16px Arial";
       ctx.fillText("IT", player.x, player.y - PLAYER_SIZE - 5);
     }
 
-    // Host crown for host player
     if (player.isHost) {
       ctx.font = "16px Arial";
       ctx.fillText(
@@ -866,13 +966,11 @@ function render() {
       );
     }
 
-    // "You" indicator
     if (id === myId) {
       drawPlayerHighlight(player);
     }
   }
 
-  // Draw game status
   if (!gameRunning) {
     ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -938,7 +1036,16 @@ function drawPlayerHighlight(player) {
   ctx.setLineDash([]);
 }
 
-// Adjust canvas size based on window size
+function drawSpeedboostHighliter(player) {
+  ctx.beginPath();
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 5]);
+  ctx.arc(player.x, player.y, PLAYER_SIZE + 9, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
 function adjustCanvasSize() {
   const container = canvas.parentElement;
   const containerWidth = container.clientWidth;

@@ -14,7 +14,9 @@ const GAME_DURATION = 60;
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const PLAYER_SIZE = 30;
-
+const BOOSTER_SIZE = 20;
+const BOOSTER_DURATION = 5;
+const BOOSTER_SPAWN_INTERVAL = 15;
 function getRandomColor() {
   const colors = [
     "#3498db",
@@ -35,7 +37,6 @@ wss.on("connection", (ws) => {
   const playerId = Math.random().toString(36).slice(2);
   let playerRoom = null;
 
-  // Initialize the connection
   ws.send(
     JSON.stringify({
       type: "welcome",
@@ -47,7 +48,6 @@ wss.on("connection", (ws) => {
     try {
       const data = JSON.parse(msg);
 
-      // Handle room creation
       if (data.type === "createRoom") {
         const roomCode = generateRoomCode();
         rooms[roomCode] = {
@@ -70,9 +70,10 @@ wss.on("connection", (ws) => {
           name: data.name || "Host",
           score: 0,
           isHost: true,
+          sm: 1.5,
+          speedboosted: false,
         };
 
-        // Confirm room creation to client
         ws.send(
           JSON.stringify({
             type: "roomCreated",
@@ -84,11 +85,9 @@ wss.on("connection", (ws) => {
         return;
       }
 
-      // Handle room joining
       if (data.type === "joinRoom") {
         const roomCode = data.roomCode;
 
-        // Check if room exists
         if (!rooms[roomCode]) {
           ws.send(
             JSON.stringify({
@@ -99,7 +98,6 @@ wss.on("connection", (ws) => {
           return;
         }
 
-        // Check if game is in progress
         if (rooms[roomCode].gameRunning) {
           ws.send(
             JSON.stringify({
@@ -112,7 +110,6 @@ wss.on("connection", (ws) => {
 
         playerRoom = roomCode;
 
-        // Add player to room
         rooms[roomCode].players[playerId] = {
           x: Math.random() * (CANVAS_WIDTH - PLAYER_SIZE * 2) + PLAYER_SIZE,
           y: Math.random() * (CANVAS_HEIGHT - PLAYER_SIZE * 2) + PLAYER_SIZE,
@@ -123,13 +120,11 @@ wss.on("connection", (ws) => {
           isHost: false,
         };
 
-        // Set tagger if this is first player
         if (!rooms[roomCode].taggerId) {
           rooms[roomCode].taggerId = playerId;
           rooms[roomCode].players[playerId].color = "#e74c3c";
         }
 
-        // Send room state to the new player
         ws.send(
           JSON.stringify({
             type: "init",
@@ -159,11 +154,9 @@ wss.on("connection", (ws) => {
         return;
       }
 
-      // Handle kick player (host only)
       if (data.type === "kickPlayer") {
         if (!playerRoom || !rooms[playerRoom]) return;
 
-        // Verify sender is host
         if (playerId !== rooms[playerRoom].hostId) {
           ws.send(
             JSON.stringify({
@@ -176,7 +169,6 @@ wss.on("connection", (ws) => {
 
         const targetId = data.playerId;
 
-        // Can't kick yourself
         if (targetId === playerId) {
           ws.send(
             JSON.stringify({
@@ -187,7 +179,6 @@ wss.on("connection", (ws) => {
           return;
         }
 
-        // Check if target exists
         if (!rooms[playerRoom].players[targetId]) {
           ws.send(
             JSON.stringify({
@@ -198,7 +189,6 @@ wss.on("connection", (ws) => {
           return;
         }
 
-        // Notify the player they've been kicked
         try {
           rooms[playerRoom].players[targetId].ws.send(
             JSON.stringify({
@@ -207,20 +197,16 @@ wss.on("connection", (ws) => {
             })
           );
 
-          // Close their connection
           rooms[playerRoom].players[targetId].ws.close();
         } catch (error) {
           console.log("Error notifying kicked player", error);
         }
 
-        // Handle tagger reassignment if needed
         if (rooms[playerRoom].taggerId === targetId) {
           handlePlayerLeaving(targetId, playerRoom);
         } else {
-          // Remove player from room
           delete rooms[playerRoom].players[targetId];
 
-          // Notify remaining players
           broadcastToRoom(playerRoom, {
             type: "playerKicked",
             id: targetId,
@@ -230,12 +216,9 @@ wss.on("connection", (ws) => {
         return;
       }
 
-      // Ensure player is in a room for all other requests
       if (!playerRoom || !rooms[playerRoom]) return;
 
-      // Handle game start
       if (data.type === "start") {
-        // Only host can start the game
         if (playerId !== rooms[playerRoom].hostId) {
           ws.send(
             JSON.stringify({
@@ -269,7 +252,6 @@ wss.on("connection", (ws) => {
         return;
       }
 
-      // Handle name setting
       if (data.type === "setName") {
         if (rooms[playerRoom].players[playerId]) {
           const sanitizedName = (data.name || "Player").substring(0, 15).trim();
@@ -307,10 +289,41 @@ wss.on("connection", (ws) => {
           PLAYER_SIZE,
           Math.min(CANVAS_HEIGHT - PLAYER_SIZE, data.y)
         );
+        if (rooms[playerRoom].currentBooster) {
+          const dx =
+            rooms[playerRoom].players[playerId].x -
+            rooms[playerRoom].currentBooster.x;
+          const dy =
+            rooms[playerRoom].players[playerId].y -
+            rooms[playerRoom].currentBooster.y;
+          const distance = Math.hypot(dx, dy);
+
+          if (distance < PLAYER_SIZE + BOOSTER_SIZE) {
+            const booster = rooms[playerRoom].currentBooster;
+
+            if (rooms[playerRoom].boosterTimeout) {
+              clearTimeout(rooms[playerRoom].boosterTimeout);
+            }
+
+            applyBoosterEffect(playerRoom, playerId, booster);
+
+            delete rooms[playerRoom].currentBooster;
+
+            broadcastToRoom(playerRoom, {
+              type: "boosterCollected",
+              playerId: playerId,
+              playerName: rooms[playerRoom].players[playerId].name,
+              boosterType: booster.type,
+            });
+
+            scheduleNextBooster(playerRoom);
+          }
+        }
 
         if (
           playerId === rooms[playerRoom].taggerId &&
-          rooms[playerRoom].gameRunning
+          rooms[playerRoom].gameRunning &&
+          !rooms[playerRoom].players[playerId].frozen
         ) {
           for (let pid in rooms[playerRoom].players) {
             if (pid !== rooms[playerRoom].taggerId) {
@@ -324,7 +337,9 @@ wss.on("connection", (ws) => {
 
               if (
                 distance < PLAYER_SIZE * 1.5 &&
-                !rooms[playerRoom].tagcooldown
+                !rooms[playerRoom].tagcooldown &&
+                !rooms[playerRoom].players[pid].shielded &&
+                !rooms[playerRoom].players[pid].frozen
               ) {
                 rooms[playerRoom].players[rooms[playerRoom].taggerId].color =
                   getRandomColor();
@@ -377,31 +392,141 @@ wss.on("connection", (ws) => {
     }
   });
 });
+function applyBoosterEffect(roomCode, playerId, booster) {
+  if (!rooms[roomCode] || !rooms[roomCode].players[playerId]) return;
 
-// Handle player leaving game
+  const player = rooms[roomCode].players[playerId];
+
+  switch (booster.type) {
+    case "speed":
+      player.speedboosted = true;
+      player.speedMultiplier = booster.multiplier || 1.5;
+
+      broadcastToRoom(roomCode, {
+        type: "playerBoosted",
+        playerId: playerId,
+        boosterType: "speed",
+        duration: BOOSTER_DURATION,
+      });
+
+      setTimeout(() => {
+        if (rooms[roomCode] && rooms[roomCode].players[playerId]) {
+          rooms[roomCode].players[playerId].speedboosted = false;
+          rooms[roomCode].players[playerId].speedMultiplier = 1;
+
+          broadcastToRoom(roomCode, {
+            type: "boostEnded",
+            playerId: playerId,
+            boosterType: "speed",
+          });
+        }
+      }, BOOSTER_DURATION * 1000);
+      break;
+
+    case "shield":
+      player.shielded = true;
+
+      const originalColor = player.color;
+      player.color = "#8e44ad";
+
+      broadcastToRoom(roomCode, {
+        type: "playerBoosted",
+        playerId: playerId,
+        boosterType: "shield",
+        duration: booster.duration,
+      });
+
+      setTimeout(() => {
+        if (rooms[roomCode] && rooms[roomCode].players[playerId]) {
+          rooms[roomCode].players[playerId].shielded = false;
+
+          if (rooms[roomCode].taggerId !== playerId) {
+            rooms[roomCode].players[playerId].color = originalColor;
+          }
+
+          broadcastToRoom(roomCode, {
+            type: "boostEnded",
+            playerId: playerId,
+            boosterType: "shield",
+          });
+        }
+      }, booster.duration * 1000);
+      break;
+
+    case "freeze":
+      if (playerId === rooms[roomCode].taggerId) {
+        for (let id in rooms[roomCode].players) {
+          if (id !== playerId) {
+            rooms[roomCode].players[id].frozen = true;
+
+            const playerOriginalColor = rooms[roomCode].players[id].color;
+            rooms[roomCode].players[id].color = "#00ffff"; // Icy blue
+
+            setTimeout(() => {
+              if (rooms[roomCode] && rooms[roomCode].players[id]) {
+                rooms[roomCode].players[id].frozen = false;
+
+                if (rooms[roomCode].taggerId !== id) {
+                  rooms[roomCode].players[id].color = playerOriginalColor;
+                }
+              }
+            }, booster.duration * 1000);
+          }
+        }
+
+        broadcastToRoom(roomCode, {
+          type: "massFreeze",
+          initiator: playerId,
+          duration: booster.duration,
+        });
+      } else {
+        // Non-tagger got the freeze power - freeze only the tagger
+        const taggerId = rooms[roomCode].taggerId;
+        if (taggerId && rooms[roomCode].players[taggerId]) {
+          rooms[roomCode].players[taggerId].frozen = true;
+
+          broadcastToRoom(roomCode, {
+            type: "playerBoosted",
+            playerId: taggerId,
+            boosterType: "frozen",
+            duration: booster.duration,
+          });
+
+          setTimeout(() => {
+            if (rooms[roomCode] && rooms[roomCode].players[taggerId]) {
+              rooms[roomCode].players[taggerId].frozen = false;
+
+              broadcastToRoom(roomCode, {
+                type: "boostEnded",
+                playerId: taggerId,
+                boosterType: "frozen",
+              });
+            }
+          }, booster.duration * 1000);
+        }
+      }
+      break;
+  }
+}
 function handlePlayerLeaving(playerId, roomCode) {
   if (!rooms[roomCode] || !rooms[roomCode].players[playerId]) return;
 
-  // If player was host, assign a new host or close room
   if (playerId === rooms[roomCode].hostId) {
     const remainingPlayers = Object.keys(rooms[roomCode].players).filter(
       (id) => id !== playerId
     );
 
     if (remainingPlayers.length > 0) {
-      // Assign new host
       const newHostId = remainingPlayers[0];
       rooms[roomCode].hostId = newHostId;
       rooms[roomCode].players[newHostId].isHost = true;
 
-      // Notify players about new host
       broadcastToRoom(roomCode, {
         type: "newHost",
         id: newHostId,
         name: rooms[roomCode].players[newHostId].name,
       });
     } else {
-      // No players left, clean up the room
       if (rooms[roomCode].gameInterval) {
         clearInterval(rooms[roomCode].gameInterval);
       }
@@ -410,7 +535,6 @@ function handlePlayerLeaving(playerId, roomCode) {
     }
   }
 
-  // If player was the tagger, assign a new tagger
   if (rooms[roomCode].taggerId === playerId) {
     const playerIds = Object.keys(rooms[roomCode].players).filter(
       (id) => id !== playerId
@@ -435,16 +559,13 @@ function handlePlayerLeaving(playerId, roomCode) {
     }
   }
 
-  // Remove player from room
   delete rooms[roomCode].players[playerId];
 
-  // Notify other players
   broadcastToRoom(roomCode, {
     type: "playerDisconnected",
     id: playerId,
   });
 
-  // End game if less than 2 players
   if (
     rooms[roomCode].gameRunning &&
     Object.keys(rooms[roomCode].players).length < 2
@@ -460,7 +581,38 @@ function handlePlayerLeaving(playerId, roomCode) {
     delete rooms[roomCode];
   }
 }
+function createBooster(roomCode) {
+  if (!rooms[roomCode] || !rooms[roomCode].gameRunning) return;
 
+  const boosterTypes = [
+    { type: "speed", color: "#00ff00", multiplier: 1.5 },
+    { type: "shield", color: "#0000ff", duration: 3 },
+    { type: "freeze", color: "#00ffff", duration: 2 },
+  ];
+
+  const selectedBooster =
+    boosterTypes[Math.floor(Math.random() * boosterTypes.length)];
+
+  rooms[roomCode].currentBooster = {
+    x: Math.random() * (CANVAS_WIDTH - BOOSTER_SIZE * 2) + BOOSTER_SIZE,
+    y: Math.random() * (CANVAS_HEIGHT - BOOSTER_SIZE * 2) + BOOSTER_SIZE,
+    type: selectedBooster.type,
+    color: selectedBooster.color,
+    ...selectedBooster,
+  };
+
+  broadcastToRoom(roomCode, {
+    type: "boosterSpawned",
+    booster: rooms[roomCode].currentBooster,
+  });
+
+  rooms[roomCode].boosterTimeout = setTimeout(() => {
+    if (rooms[roomCode] && rooms[roomCode].currentBooster) {
+      delete rooms[roomCode].currentBooster;
+      broadcastToRoom(roomCode, { type: "boosterRemoved" });
+    }
+  }, 10000);
+}
 function sanitizePlayer(player) {
   const { ws, ...cleanPlayer } = player;
   return cleanPlayer;
@@ -489,19 +641,31 @@ function broadcastToRoom(roomCode, data, excludeId = null) {
     }
   }
 }
+function scheduleNextBooster(roomCode) {
+  if (!rooms[roomCode] || !rooms[roomCode].gameRunning) return;
 
+  if (rooms[roomCode].boosterTimer) {
+    clearTimeout(rooms[roomCode].boosterTimer);
+  }
+
+  const nextBoosterDelay =
+    Math.random() * 10000 + BOOSTER_SPAWN_INTERVAL * 1000;
+  rooms[roomCode].boosterTimer = setTimeout(() => {
+    createBooster(roomCode);
+    scheduleNextBooster(roomCode);
+  }, nextBoosterDelay);
+}
 function startGame(roomCode) {
   if (!rooms[roomCode] || rooms[roomCode].gameRunning) return;
 
   rooms[roomCode].gameRunning = true;
   rooms[roomCode].gameTime = GAME_DURATION;
 
-  // Reset scores
   for (let id in rooms[roomCode].players) {
     rooms[roomCode].players[id].score = 0;
+    rooms[roomCode].players[id].speedboosted = false;
   }
 
-  // Choose random tagger
   const playerIds = Object.keys(rooms[roomCode].players);
   rooms[roomCode].taggerId =
     playerIds[Math.floor(Math.random() * playerIds.length)];
@@ -510,6 +674,11 @@ function startGame(roomCode) {
     rooms[roomCode].players[id].color =
       id === rooms[roomCode].taggerId ? "#e74c3c" : getRandomColor();
   }
+  const initialBoosterDelay = Math.random() * 5000 + 5000;
+  rooms[roomCode].boosterTimer = setTimeout(() => {
+    createBooster(roomCode);
+    scheduleNextBooster(roomCode);
+  }, initialBoosterDelay);
 
   broadcastToRoom(roomCode, {
     type: "gameStarted",
@@ -518,7 +687,6 @@ function startGame(roomCode) {
     players: sanitizePlayers(rooms[roomCode].players),
   });
 
-  // Start game timer
   rooms[roomCode].gameInterval = setInterval(() => {
     if (!rooms[roomCode]) {
       clearInterval(rooms[roomCode].gameInterval);
@@ -542,9 +710,20 @@ function endGame(roomCode, reason) {
   if (!rooms[roomCode] || !rooms[roomCode].gameRunning) return;
 
   clearInterval(rooms[roomCode].gameInterval);
+
+  if (rooms[roomCode].boosterTimer) {
+    clearTimeout(rooms[roomCode].boosterTimer);
+  }
+
+  if (rooms[roomCode].boosterTimeout) {
+    clearTimeout(rooms[roomCode].boosterTimeout);
+  }
+
+  if (rooms[roomCode].currentBooster) {
+    delete rooms[roomCode].currentBooster;
+  }
   rooms[roomCode].gameRunning = false;
 
-  // Calculate scores
   const scores = {};
   for (let id in rooms[roomCode].players) {
     scores[id] = {
@@ -553,7 +732,6 @@ function endGame(roomCode, reason) {
     };
   }
 
-  // Find winner(s)
   let highestScore = -1;
   let winners = [];
 
