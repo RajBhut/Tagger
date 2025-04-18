@@ -28,7 +28,7 @@ const kickPlayersList = document.getElementById("kickPlayersList");
 const confirmKickBtn = document.getElementById("confirmKickBtn");
 const cancelKickBtn = document.getElementById("cancelKickBtn");
 const msginput = document.getElementById("msg");
-
+const msgBtn = document.getElementById("sendmsg");
 let ws;
 let players = {};
 let myId = null;
@@ -420,7 +420,7 @@ function handleMessage(msg) {
 
       case "kicked":
         showNotification(data.message);
-        // Reset and show welcome screen after delay
+
         setTimeout(() => {
           players = {};
           myId = null;
@@ -554,7 +554,405 @@ function handleGameOver(data) {
   gameOverModal.classList.remove("hidden");
 }
 
+function setupControls() {
+  const gameArea = document.querySelector(".game-area");
+
+  const controlsWrapper = document.createElement("div");
+  controlsWrapper.className = "controls-wrapper";
+  gameArea.appendChild(controlsWrapper);
+
+  const controlSwitcher = document.createElement("div");
+  controlSwitcher.className = "control-switcher";
+
+  const switchButton = document.createElement("button");
+  switchButton.className = "switch-button";
+  switchButton.innerHTML = "🕹️ Switch Controls";
+  controlSwitcher.appendChild(switchButton);
+
+  const controlsContainer = document.createElement("div");
+  controlsContainer.className = "controls-container";
+
+  controlsWrapper.appendChild(controlsContainer);
+  controlsWrapper.appendChild(controlSwitcher);
+  let currentControlType = localStorage.getItem("controlType") || "joystick";
+
+  const joystickEl = createJoystickElement(controlsContainer);
+  const dPadEl = createDPadElement(controlsContainer);
+
+  function updateControlVisibility() {
+    if (currentControlType === "joystick") {
+      joystickEl.style.display = "flex";
+      dPadEl.style.display = "none";
+      switchButton.innerHTML = "➕ Switch to D-Pad";
+    } else {
+      joystickEl.style.display = "none";
+      dPadEl.style.display = "flex";
+      switchButton.innerHTML = "🕹️ Switch to Joystick";
+    }
+  }
+
+  switchButton.addEventListener("click", () => {
+    currentControlType =
+      currentControlType === "joystick" ? "dpad" : "joystick";
+    localStorage.setItem("controlType", currentControlType);
+    updateControlVisibility();
+    showNotification(
+      `Switched to ${
+        currentControlType === "joystick" ? "Joystick" : "D-Pad"
+      } controls`
+    );
+  });
+
+  updateControlVisibility();
+  addControlsCSS();
+}
+
+function addControlsCSS() {
+  const style = document.createElement("style");
+  style.textContent = `
+    .controls-wrapper {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 10px;
+      margin-bottom: 15px;
+      width: 100%;
+    }
+    
+    .control-switcher {
+      margin-bottom: 15px;
+      z-index: 10;
+    }
+    
+    .switch-button {
+      background: #3498db;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.2s;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    
+    .switch-button:hover {
+      background: #2980b9;
+    }
+    
+    .controls-container {
+      width: 200px;
+      height: 200px;
+      position: relative;
+    }
+    
+    /* Joystick styles - updated for lighter palette */
+    .joystick-container {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto;
+      background-color: rgba(225, 240, 255, 0.3);
+      border: 2px solid rgba(52, 152, 219, 0.6);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: none;
+      user-select: none;
+      z-index: 100;
+      box-shadow: 0 3px 10px rgba(52, 152, 219, 0.2);
+    }
+    
+    .joystick {
+      width: 60px;
+      height: 60px;
+      background: radial-gradient(circle, #5dade2, #3498db);
+      box-shadow: 0 3px 6px rgba(52, 152, 219, 0.4);
+      border-radius: 50%;
+      touch-action: none;
+      user-select: none;
+    }
+    
+    /* D-pad styles - updated for lighter palette */
+    .d-pad {
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 150px;
+      touch-action: none;
+      user-select: none;
+      z-index: 100;
+    }
+    
+    .middle-row {
+      display: flex;
+      width: 100%;
+      align-items: center;
+    }
+    
+    .control-btn {
+      width: 50px;
+      height: 50px;
+      background-color: rgba(52, 152, 219, 0.8);
+      color: white;
+      border: 1px solid rgba(41, 128, 185, 0.7);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      cursor: pointer;
+      user-select: none;
+      touch-action: none;
+      transition: background-color 0.15s, transform 0.15s;
+      box-shadow: 0 3px 6px rgba(52, 152, 219, 0.3);
+    }
+    
+    .control-btn:active {
+      background-color: rgba(41, 128, 185, 0.9);
+      transform: translateY(2px);
+      box-shadow: 0 1px 3px rgba(52, 152, 219, 0.3);
+    }
+    
+    .up-btn, .down-btn {
+      margin: 5px 0;
+    }
+    
+    .left-btn, .right-btn {
+      margin: 0 5px;
+    }
+    
+    .center-btn {
+      width: 40px;
+      height: 40px;
+      background-color: rgba(85, 172, 238, 0.3);
+      border-radius: 10px;
+      border: 1px solid rgba(52, 152, 219, 0.4);
+    }
+    
+   
+    @media screen and (max-width: 600px) {
+      .controls-container {
+        width: 180px;
+        height: 180px;
+      }
+      
+      .joystick-container {
+        width: 110px;
+        height: 110px;
+      }
+      
+      .joystick {
+        width: 55px;
+        height: 55px;
+      }
+      
+      .d-pad {
+        width: 140px;
+      }
+      
+      .control-btn {
+        width: 45px;
+        height: 45px;
+      }
+    }
+    
+    @media screen and (max-width: 400px) {
+      .controls-container {
+        width: 160px;
+        height: 160px;
+      }
+      
+      .joystick-container {
+        width: 100px;
+        height: 100px;
+      }
+      
+      .joystick {
+        width: 50px;
+        height: 50px;
+      }
+      
+      .d-pad {
+        width: 130px;
+      }
+      
+      .control-btn {
+        width: 40px;
+        height: 40px;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function createJoystickElement(parent) {
+  const joystickContainer = document.createElement("div");
+  joystickContainer.className = "joystick-container";
+  const joystick = document.createElement("div");
+  joystick.className = "joystick";
+  joystickContainer.appendChild(joystick);
+  parent.appendChild(joystickContainer);
+
+  let dragging = false;
+  let center = { x: 0, y: 0 };
+  let containerRect = null;
+
+  joystickContainer.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    dragging = true;
+    containerRect = joystickContainer.getBoundingClientRect();
+    const touch = e.touches[0];
+
+    center = {
+      x: containerRect.left + containerRect.width / 2,
+      y: containerRect.top + containerRect.height / 2,
+    };
+
+    const dx = touch.clientX - center.x;
+    const dy = touch.clientY - center.y;
+
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const maxRadius = 50;
+
+    let limitedDx = dx;
+    let limitedDy = dy;
+    if (distance > maxRadius) {
+      limitedDx = (dx / distance) * maxRadius;
+      limitedDy = (dy / distance) * maxRadius;
+    }
+
+    joystick.style.transform = `translate(${limitedDx}px, ${limitedDy}px)`;
+
+    directionPressed.up = dy < -20;
+    directionPressed.down = dy > 20;
+    directionPressed.left = dx < -20;
+    directionPressed.right = dx > 20;
+  });
+
+  joystickContainer.addEventListener("touchmove", (e) => {
+    e.preventDefault(); // Prevent scrolling
+    if (!dragging || !containerRect) return;
+
+    const touch = e.touches[0];
+    const dx = touch.clientX - center.x;
+    const dy = touch.clientY - center.y;
+
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const maxRadius = 50;
+
+    let limitedDx = dx;
+    let limitedDy = dy;
+    if (distance > maxRadius) {
+      limitedDx = (dx / distance) * maxRadius;
+      limitedDy = (dy / distance) * maxRadius;
+    }
+
+    joystick.style.transform = `translate(${limitedDx}px, ${limitedDy}px)`;
+
+    directionPressed.up = dy < -20;
+    directionPressed.down = dy > 20;
+    directionPressed.left = dx < -20;
+    directionPressed.right = dx > 20;
+  });
+
+  joystickContainer.addEventListener("touchend", endTouch);
+  joystickContainer.addEventListener("touchcancel", endTouch);
+
+  function endTouch() {
+    if (dragging) {
+      dragging = false;
+      joystick.style.transform = `translate(0px, 0px)`;
+      directionPressed.up = false;
+      directionPressed.down = false;
+      directionPressed.left = false;
+      directionPressed.right = false;
+      containerRect = null;
+    }
+  }
+
+  return joystickContainer;
+}
+function createDPadElement(parent) {
+  const dPad = document.createElement("div");
+  dPad.className = "d-pad";
+
+  const upBtn = document.createElement("button");
+  upBtn.className = "control-btn up-btn";
+  upBtn.innerHTML = "&#9650;"; // Up triangle
+
+  const middleRow = document.createElement("div");
+  middleRow.className = "middle-row";
+
+  const leftBtn = document.createElement("button");
+  leftBtn.className = "control-btn left-btn";
+  leftBtn.innerHTML = "&#9668;"; // Left triangle
+
+  const centerBtn = document.createElement("div");
+  centerBtn.className = "center-btn";
+
+  const rightBtn = document.createElement("button");
+  rightBtn.className = "control-btn right-btn";
+  rightBtn.innerHTML = "&#9658;"; // Right triangle
+
+  const downBtn = document.createElement("button");
+  downBtn.className = "control-btn down-btn";
+  downBtn.innerHTML = "&#9660;"; // Down triangle
+
+  middleRow.appendChild(leftBtn);
+  middleRow.appendChild(centerBtn);
+  middleRow.appendChild(rightBtn);
+
+  dPad.appendChild(upBtn);
+  dPad.appendChild(middleRow);
+  dPad.appendChild(downBtn);
+
+  parent.appendChild(dPad);
+
+  // Touch/mouse events for all buttons
+  const addButtonEvents = (btn, direction) => {
+    // Touch events
+    btn.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      directionPressed[direction] = true;
+    });
+    btn.addEventListener("touchend", () => {
+      directionPressed[direction] = false;
+    });
+
+    // Mouse events
+    btn.addEventListener("mousedown", () => {
+      directionPressed[direction] = true;
+    });
+    btn.addEventListener("mouseup", () => {
+      directionPressed[direction] = false;
+    });
+    btn.addEventListener("mouseleave", () => {
+      directionPressed[direction] = false;
+    });
+  };
+
+  addButtonEvents(upBtn, "up");
+  addButtonEvents(downBtn, "down");
+  addButtonEvents(leftBtn, "left");
+  addButtonEvents(rightBtn, "right");
+
+  return dPad;
+}
+
 function setupEventListeners() {
+  window.addEventListener("keydown", function (e) {
+    if (
+      ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(
+        e.code
+      )
+    ) {
+      e.preventDefault();
+    }
+  });
+
   document.addEventListener("keydown", (e) => {
     keys[e.key] = true;
   });
@@ -563,7 +961,6 @@ function setupEventListeners() {
     keys[e.key] = false;
   });
 
-  // Button handlers
   startBtn.addEventListener("click", () => {
     if (!gameRunning && isHost) {
       ws.send(JSON.stringify({ type: "start" }));
@@ -576,6 +973,18 @@ function setupEventListeners() {
     const name = playerNameInput.value.trim();
     if (name) {
       setPlayerName(name);
+    }
+  });
+  msgBtn.addEventListener("click", () => {
+    const msg = msginput.value.trim();
+    sendmsg(msg);
+  });
+  msginput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      const msg = msginput.value.trim();
+      if (msg) {
+        sendmsg(msg);
+      }
     }
   });
 
@@ -592,119 +1001,8 @@ function setupEventListeners() {
     gameOverModal.classList.add("hidden");
   });
 
-  createMobileControls();
-
+  setupControls();
   window.addEventListener("resize", adjustCanvasSize);
-}
-
-function createMobileControls() {
-  const mobileControls = document.createElement("div");
-  mobileControls.className = "mobile-controls";
-
-  const dPad = document.createElement("div");
-  dPad.className = "d-pad";
-
-  const upBtn = document.createElement("button");
-  upBtn.id = "up-btn";
-  upBtn.className = "control-btn up-btn";
-  upBtn.textContent = "↑";
-
-  const middleRow = document.createElement("div");
-  middleRow.className = "middle-row";
-
-  const leftBtn = document.createElement("button");
-  leftBtn.id = "left-btn";
-  leftBtn.className = "control-btn left-btn";
-  leftBtn.textContent = "←";
-
-  const rightBtn = document.createElement("button");
-  rightBtn.id = "right-btn";
-  rightBtn.className = "control-btn right-btn";
-  rightBtn.textContent = "→";
-
-  const downBtn = document.createElement("button");
-  downBtn.id = "down-btn";
-  downBtn.className = "control-btn down-btn";
-  downBtn.textContent = "↓";
-
-  middleRow.appendChild(leftBtn);
-  middleRow.appendChild(rightBtn);
-  dPad.appendChild(upBtn);
-  dPad.appendChild(middleRow);
-  dPad.appendChild(downBtn);
-  mobileControls.appendChild(dPad);
-
-  const gameArea = document.querySelector(".game-area");
-  gameArea.appendChild(mobileControls);
-
-  upBtn.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    directionPressed.up = true;
-  });
-  upBtn.addEventListener("touchend", () => {
-    directionPressed.up = false;
-  });
-  upBtn.addEventListener("mousedown", () => {
-    directionPressed.up = true;
-  });
-  upBtn.addEventListener("mouseup", () => {
-    directionPressed.up = false;
-  });
-  upBtn.addEventListener("mouseleave", () => {
-    directionPressed.up = false;
-  });
-
-  // Down button
-  downBtn.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    directionPressed.down = true;
-  });
-  downBtn.addEventListener("touchend", () => {
-    directionPressed.down = false;
-  });
-  downBtn.addEventListener("mousedown", () => {
-    directionPressed.down = true;
-  });
-  downBtn.addEventListener("mouseup", () => {
-    directionPressed.down = false;
-  });
-  downBtn.addEventListener("mouseleave", () => {
-    directionPressed.down = false;
-  });
-
-  leftBtn.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    directionPressed.left = true;
-  });
-  leftBtn.addEventListener("touchend", () => {
-    directionPressed.left = false;
-  });
-  leftBtn.addEventListener("mousedown", () => {
-    directionPressed.left = true;
-  });
-  leftBtn.addEventListener("mouseup", () => {
-    directionPressed.left = false;
-  });
-  leftBtn.addEventListener("mouseleave", () => {
-    directionPressed.left = false;
-  });
-
-  rightBtn.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    directionPressed.right = true;
-  });
-  rightBtn.addEventListener("touchend", () => {
-    directionPressed.right = false;
-  });
-  rightBtn.addEventListener("mousedown", () => {
-    directionPressed.right = true;
-  });
-  rightBtn.addEventListener("mouseup", () => {
-    directionPressed.right = false;
-  });
-  rightBtn.addEventListener("mouseleave", () => {
-    directionPressed.right = false;
-  });
 }
 
 function setPlayerName(name) {
@@ -790,15 +1088,18 @@ function update() {
   let moved = false;
   let newX = players[myId].x;
   let newY = players[myId].y;
+
   if (boostedPlayers[myId] && boostedPlayers[myId].type === "frozen") {
     return;
   }
+
   let speed = movementSpeed;
-  if (
-    players[myId].speedboosted ||
-    (boostedPlayers[myId] && boostedPlayers[myId].type === "speed")
-  ) {
-    speed = movementSpeed * players[myId].sm;
+  if (boostedPlayers[myId] && boostedPlayers[myId].type === "speed") {
+    const speedMultiplier = Math.min(players[myId].sm || 1.5, 2);
+    speed = movementSpeed * speedMultiplier;
+  } else if (players[myId].speedboosted) {
+    const speedMultiplier = Math.min(players[myId].sm || 1.5, 2);
+    speed = movementSpeed * speedMultiplier;
   }
 
   if (keys["ArrowUp"] || keys["w"] || directionPressed.up) {
@@ -821,7 +1122,12 @@ function update() {
   newX = Math.max(PLAYER_SIZE, Math.min(canvasWidth - PLAYER_SIZE, newX));
   newY = Math.max(PLAYER_SIZE, Math.min(canvasHeight - PLAYER_SIZE, newY));
 
-  if (moved && (newX !== players[myId].x || newY !== players[myId].y)) {
+  const movementThreshold = 0.1;
+  const hasSignificantMove =
+    Math.abs(newX - players[myId].x) > movementThreshold ||
+    Math.abs(newY - players[myId].y) > movementThreshold;
+
+  if (moved && hasSignificantMove) {
     players[myId].x = newX;
     players[myId].y = newY;
 
@@ -1219,6 +1525,7 @@ function sendmsg() {
       chatcool = false;
     }, 3000);
   }
+  msginput.value = "";
 }
 function createCustomSound(type) {
   if (!audioContext) return;
