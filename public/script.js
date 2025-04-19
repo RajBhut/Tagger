@@ -1308,7 +1308,7 @@ function setupEventListeners() {
   document.getElementById("shareScoreBtn").addEventListener("click", () => {
     // Create a share message
     const winnerText = document.getElementById("winner").textContent;
-    const shareText = `I just played Tagger! ${winnerText} Check it out at [your-game-url]`;
+    const shareText = `I just played Tagger! ${winnerText} Check it out at https://tagger.nxog.tech`;
 
     // Try to use Web Share API if available
     if (navigator.share) {
