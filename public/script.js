@@ -2,7 +2,7 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const startBtn = document.getElementById("startBtn");
 const setNameBtn = document.getElementById("setNameBtn");
-const playerNameInput = document.getElementById("playerName");
+//const playerNameInput = document.getElementById("playerName");
 const timerValue = document.getElementById("timer-value");
 const statusMessage = document.getElementById("status-message");
 const playersList = document.getElementById("players-list");
@@ -45,6 +45,7 @@ let selectedPlayerToKick = null;
 let chatcool = false;
 let currentBooster = null;
 let boostedPlayers = {};
+let soundEnabled = true;
 const BOOSTER_SIZE = 20;
 const PLAYER_SIZE = 30;
 const FRAME_RATE = 60;
@@ -62,12 +63,20 @@ function initApp() {
   createRoomBtn.addEventListener("click", createRoom);
   joinRoomBtn.addEventListener("click", joinRoom);
   copyCodeBtn.addEventListener("click", copyRoomCodeToClipboard);
-
+  const savedSoundPreference = localStorage.getItem("soundEnabled");
+  if (savedSoundPreference !== null) {
+    soundEnabled = savedSoundPreference === "true";
+    if (document.getElementById("soundToggleBtn")) {
+      document.getElementById("soundToggleBtn").textContent = soundEnabled
+        ? "Sound: ON"
+        : "Sound: OFF";
+    }
+  }
   confirmKickBtn.addEventListener("click", confirmKickPlayer);
   cancelKickBtn.addEventListener("click", () => {
     kickPlayerModal.classList.add("hidden");
   });
-
+  addCountdownCSS();
   welcomeScreen.classList.remove("hidden");
 
   gameScreen.classList.add("hidden");
@@ -193,15 +202,12 @@ function openKickPlayerModal() {
     }
   }
 
-  // Show modal
   kickPlayerModal.classList.remove("hidden");
 }
 
-// Select player to kick
 function selectPlayerToKick(playerId) {
   selectedPlayerToKick = playerId;
 
-  // Highlight selected player
   const playerItems = document.querySelectorAll(".kick-player-item");
   playerItems.forEach((item) => {
     if (item.dataset.playerId === playerId) {
@@ -225,7 +231,9 @@ function confirmKickPlayer() {
   kickPlayerModal.classList.add("hidden");
   selectedPlayerToKick = null;
 }
-
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_DELAY = 3000;
 function connectToServer(callback) {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = `${protocol}//${window.location.host}`;
@@ -238,8 +246,18 @@ function connectToServer(callback) {
   };
 
   ws.onclose = () => {
-    showNotification("Connection lost. Reconnecting...");
-    setTimeout(() => connectToServer(callback), 3000);
+    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      const delay = RECONNECT_DELAY * Math.pow(1.5, reconnectAttempts);
+      showNotification(
+        `Connection lost. Reconnecting in ${Math.round(delay / 1000)}s...`
+      );
+      setTimeout(() => {
+        reconnectAttempts++;
+        connectToServer(callback);
+      }, delay);
+    } else {
+      showNotification("Connection lost. Please refresh the page.", 10000);
+    }
   };
 
   ws.onerror = (error) => {
@@ -269,13 +287,17 @@ function handleMessage(msg) {
       case "welcome":
         myId = data.playerId;
         break;
-
+      case "tagCountdown":
+        if (myId === taggerId) {
+          showTagCountdown(data.remainingTime);
+        }
+        break;
       case "roomCreated":
         currentRoom = data.roomCode;
         currentRoomCode.textContent = data.roomCode;
         isHost = data.isHost;
 
-        playerNameInput.value = createNameInput.value;
+        // playerNameInput.value = createNameInput.value;
 
         initGame();
         break;
@@ -290,6 +312,17 @@ function handleMessage(msg) {
         currentBooster = data.booster;
 
         playSound("powerup");
+        break;
+      case "playerDied":
+        if (players[data.playerId]) {
+          players[data.playerId].is_dead = true;
+          players[data.playerId].x = -999;
+          players[data.playerId].y = -999;
+          players[data.playerId].frozen = false;
+
+          showNotification(`${data.playerName} has been eliminated!`);
+          playSound("death");
+        }
         break;
 
       case "boosterCollected":
@@ -401,8 +434,19 @@ function handleMessage(msg) {
         break;
 
       case "tagged":
-        showNotification(`${data.tagger} tagged ${data.tagged}!`);
+        const message = `${data.tagger} tagged ${data.tagged}`;
 
+        if (data.pointsEarned) {
+          showNotification(`${message} (+${data.pointsEarned} points!)`);
+        } else {
+          showNotification(message);
+        }
+
+        if (myId === taggerId) {
+          playSound("tagged");
+        } else {
+          playSound("tag");
+        }
         break;
 
       case "playerDisconnected":
@@ -476,6 +520,18 @@ function handleTagUpdate(data) {
 
   updatePlayersList();
 
+  // Clear any tag countdown if it exists
+  const countdownElement = document.getElementById("tag-countdown");
+  if (countdownElement) {
+    countdownElement.remove();
+  }
+
+  // Clear any interval that's running
+  if (window.tagCountdownInterval) {
+    clearInterval(window.tagCountdownInterval);
+    window.tagCountdownInterval = null;
+  }
+
   if (taggerId === myId) {
     showNotification("You are now IT! Chase other players!");
     playSound("youreIt");
@@ -484,6 +540,10 @@ function handleTagUpdate(data) {
 
 function handleGameStarted(data) {
   gameRunning = true;
+  for (let id in players) {
+    players[id].is_dead = false;
+    players[id].frozen = false;
+  }
   gameTime = data.time;
   taggerId = data.taggerId;
   players = data.players;
@@ -504,42 +564,22 @@ function handleGameStarted(data) {
 
 function handleGameOver(data) {
   gameRunning = false;
-  startBtn.disabled = false;
-  statusMessage.textContent = "Game over - Ready to start";
 
-  gameOverReason.textContent = data.reason;
+  const winnerElement = document.getElementById("winner");
+  const statsContainer = document.getElementById("game-stats");
 
-  let scoresHtml =
-    "<table class='score-table'><tr><th>Player</th><th>Score</th></tr>";
-
-  const sortedPlayers = Object.entries(data.scores).sort(
-    (a, b) => b[1].score - a[1].score
-  );
-
-  sortedPlayers.forEach(([id, player]) => {
-    const isWinner = data.winners.includes(id);
-    const isMe = id === myId;
-
-    scoresHtml += `<tr class="${isWinner ? "winner-row" : ""} ${
-      isMe ? "me-row" : ""
-    }">
-      <td>${player.name}${isMe ? " (You)" : ""}</td>
-      <td>${player.score}</td>
-    </tr>`;
-  });
-
-  scoresHtml += "</table>";
-  gameOverScores.innerHTML = scoresHtml;
+  // Clear previous stats
+  statsContainer.innerHTML = "";
 
   if (data.winners.length === 1) {
     const winnerId = data.winners[0];
     const isMe = winnerId === myId;
 
     if (isMe) {
-      winnerElement.textContent = "You win! 🏆";
+      winnerElement.textContent = "You won! 🏆";
       playSound("win");
     } else {
-      winnerElement.textContent = `${data.winnerNames[0]} wins! 🏆`;
+      winnerElement.textContent = `${data.winnerNames[0]} won! 🏆`;
       playSound("lose");
     }
   } else if (data.winners.length > 1) {
@@ -551,7 +591,233 @@ function handleGameOver(data) {
     winnerElement.textContent = "No winners this time!";
   }
 
+  // Create stats table
+  const statsTable = document.createElement("div");
+  statsTable.className = "game-stats";
+
+  // Add header
+  const header = document.createElement("h3");
+  header.textContent = "Final Scores";
+  statsTable.appendChild(header);
+
+  // Sort players by score
+  const sortedPlayers = Object.entries(data.scores).sort(
+    (a, b) => b[1].score - a[1].score
+  );
+
+  // Add each player's stats
+  sortedPlayers.forEach(([playerId, playerData]) => {
+    const statItem = document.createElement("div");
+    statItem.className = "stat-item";
+
+    const nameSpan = document.createElement("span");
+
+    // Highlight winner
+    if (data.winners.includes(playerId)) {
+      nameSpan.className = "winner-name";
+      nameSpan.textContent = `${playerData.name} 👑`;
+    } else {
+      nameSpan.textContent = playerData.name;
+    }
+
+    // Show if survived
+    if (playerData.survived) {
+      nameSpan.textContent += " (survived)";
+    }
+
+    const scoreSpan = document.createElement("span");
+    scoreSpan.textContent = `${playerData.score} pts`;
+
+    statItem.appendChild(nameSpan);
+    statItem.appendChild(scoreSpan);
+    statsTable.appendChild(statItem);
+  });
+
+  // Add survival bonus explanation if applicable
+  if (
+    data.survivalBonus &&
+    data.survivingPlayers &&
+    data.survivingPlayers.length > 0
+  ) {
+    const bonusInfo = document.createElement("div");
+    bonusInfo.className = "survival-bonus";
+    bonusInfo.textContent = `Surviving players got +${data.survivalBonus} bonus points!`;
+    statsTable.appendChild(bonusInfo);
+  }
+
+  // Add stats to container
+  statsContainer.appendChild(statsTable);
+
+  // Show the modal
   gameOverModal.classList.remove("hidden");
+}
+
+function showTagCountdown(seconds) {
+  // Remove any existing countdown
+  const existingCountdown = document.getElementById("tag-countdown");
+  if (existingCountdown) {
+    existingCountdown.remove();
+  }
+
+  // Create countdown element
+  const countdownElement = document.createElement("div");
+  countdownElement.id = "tag-countdown";
+  countdownElement.className = "tag-countdown";
+
+  // Add warning text
+  const warningText = document.createElement("div");
+  warningText.className = "countdown-warning";
+  warningText.textContent = "TAG SOMEONE!";
+  countdownElement.appendChild(warningText);
+
+  // Add timer display
+  const timerDisplay = document.createElement("div");
+  timerDisplay.className = "countdown-timer";
+  timerDisplay.textContent = seconds;
+  countdownElement.appendChild(timerDisplay);
+
+  // Add to document
+  document.body.appendChild(countdownElement);
+
+  // Start countdown animation
+  countdownElement.classList.add("show");
+
+  // Store interval ID so we can clear it when player tags someone
+  const countdownInterval = setInterval(() => {
+    // Check if element still exists (might have been removed on successful tag)
+    const element = document.getElementById("tag-countdown");
+    if (!element) {
+      clearInterval(countdownInterval);
+      return;
+    }
+
+    seconds--;
+    if (seconds <= 0) {
+      clearInterval(countdownInterval);
+      element.classList.add("times-up");
+      timerDisplay.textContent = "0";
+      warningText.textContent = "TIME'S UP!";
+
+      // Remove after showing "TIME'S UP" for 2 seconds
+      setTimeout(() => {
+        if (element) {
+          element.classList.remove("show");
+          setTimeout(() => {
+            if (element) element.remove();
+          }, 500);
+        }
+      }, 2000);
+    } else {
+      timerDisplay.textContent = seconds;
+
+      // Make it more urgent when time is running low
+      if (seconds <= 3) {
+        element.classList.add("urgent");
+        playSound("warning");
+      }
+    }
+  }, 1000);
+
+  // Store the interval ID in a global variable so we can clear it when player tags someone
+  window.tagCountdownInterval = countdownInterval;
+}
+
+// Add CSS for the improved countdown that doesn't block the view
+function addCountdownCSS() {
+  const style = document.createElement("style");
+  style.textContent = `
+    .tag-countdown {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background-color: rgba(231, 76, 60, 0.9);
+      border: 3px solid #c0392b;
+      border-radius: 10px;
+      padding: 10px 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 900;
+      opacity: 0;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 20px rgba(231, 76, 60, 0.7);
+      max-width: 120px;
+    }
+    
+    .tag-countdown.show {
+      opacity: 1;
+    }
+    
+    .countdown-warning {
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 5px;
+      text-align: center;
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+    }
+    
+    .countdown-timer {
+      color: white;
+      font-size: 32px;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      min-width: 40px;
+      text-align: center;
+    }
+    
+    .tag-countdown.urgent {
+      animation: pulse 0.5s infinite alternate;
+      background-color: rgba(231, 60, 60, 0.95);
+    }
+    
+    .tag-countdown.times-up {
+      background-color: rgba(192, 57, 43, 0.95);
+      animation: shake 0.5s;
+    }
+    
+    @keyframes pulse {
+      from { transform: scale(1); }
+      to { transform: scale(1.05); }
+    }
+    
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+      20%, 40%, 60%, 80% { transform: translateX(5px); }
+    }
+    
+    /* Game over stats styling */
+    .game-stats {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: rgba(44, 62, 80, 0.9);
+      border-radius: 10px;
+      color: white;
+    }
+    
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      margin: 8px 0;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+    }
+    
+    .winner-name {
+      color: gold;
+      font-weight: bold;
+      text-shadow: 0 0 5px rgba(255,215,0,0.5);
+    }
+    
+    .survival-bonus {
+      color: #2ecc71;
+      font-weight: bold;
+    }
+  `;
+
+  document.head.appendChild(style);
 }
 
 function setupControls() {
@@ -960,6 +1226,16 @@ function setupEventListeners() {
   document.addEventListener("keyup", (e) => {
     keys[e.key] = false;
   });
+  document.getElementById("soundToggleBtn").addEventListener("click", () => {
+    soundEnabled = !soundEnabled;
+    document.getElementById("soundToggleBtn").textContent = soundEnabled
+      ? "Sound: ON"
+      : "Sound: OFF";
+
+    localStorage.setItem("soundEnabled", soundEnabled.toString());
+
+    showNotification(`Sound ${soundEnabled ? "enabled" : "disabled"}`);
+  });
 
   startBtn.addEventListener("click", () => {
     if (!gameRunning && isHost) {
@@ -969,16 +1245,31 @@ function setupEventListeners() {
     }
   });
 
-  setNameBtn.addEventListener("click", () => {
-    const name = playerNameInput.value.trim();
-    if (name) {
-      setPlayerName(name);
-    }
-  });
+  // If you still want to keep this, you need a reference to playerNameInput
+  // Otherwise, remove this section if you're using createName and joinName fields
+  // if (playerNameInput) {
+  //   setNameBtn.addEventListener("click", () => {
+  //     const name = playerNameInput.value.trim();
+  //     if (name) {
+  //       setPlayerName(name);
+  //     }
+  //   });
+
+  //   playerNameInput.addEventListener("keypress", (e) => {
+  //     if (e.key === "Enter") {
+  //       const name = playerNameInput.value.trim();
+  //       if (name) {
+  //         setPlayerName(name);
+  //       }
+  //     }
+  //   });
+  // }
+
   msgBtn.addEventListener("click", () => {
     const msg = msginput.value.trim();
     sendmsg(msg);
   });
+
   msginput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") {
       const msg = msginput.value.trim();
@@ -987,24 +1278,68 @@ function setupEventListeners() {
       }
     }
   });
+  document.getElementById("kickBtn").addEventListener("click", () => {
+    if (isHost) {
+      openKickPlayerModal();
+    } else {
+      showNotification("Only the host can kick players");
+    }
+  });
+  closeModalBtn.addEventListener("click", () => {
+    gameOverModal.classList.add("hidden");
 
-  playerNameInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-      const name = playerNameInput.value.trim();
-      if (name) {
-        setPlayerName(name);
-      }
+    if (isHost) {
+      startBtn.disabled = false;
+      statusMessage.textContent = "Ready to start a new game";
+    } else {
+      statusMessage.textContent = "Waiting for host to start a new game";
     }
   });
 
-  closeModalBtn.addEventListener("click", () => {
+  // Add event listener for Play Again button
+  document.getElementById("playAgainBtn").addEventListener("click", () => {
     gameOverModal.classList.add("hidden");
+    if (isHost) {
+      ws.send(JSON.stringify({ type: "start" }));
+    }
+  });
+
+  // Add event listener for Share Score button
+  document.getElementById("shareScoreBtn").addEventListener("click", () => {
+    // Create a share message
+    const winnerText = document.getElementById("winner").textContent;
+    const shareText = `I just played Tagger! ${winnerText} Check it out at [your-game-url]`;
+
+    // Try to use Web Share API if available
+    if (navigator.share) {
+      navigator
+        .share({
+          title: "Tagger - Multiplayer Tag Game",
+          text: shareText,
+        })
+        .catch((err) => {
+          console.error("Error sharing:", err);
+          // Fallback to clipboard
+          copyToClipboard(shareText);
+          showNotification("Score copied to clipboard!");
+        });
+    } else {
+      copyToClipboard(shareText);
+      showNotification("Score copied to clipboard!");
+    }
   });
 
   setupControls();
   window.addEventListener("resize", adjustCanvasSize);
 }
-
+function copyToClipboard(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
 function setPlayerName(name) {
   if (name && ws.readyState === WebSocket.OPEN) {
     ws.send(
@@ -1019,6 +1354,55 @@ function setPlayerName(name) {
   }
 }
 
+// function updatePlayersList() {
+//   playersList.innerHTML = "";
+
+//   for (const id in players) {
+//     const player = players[id];
+//     const isMe = id === myId;
+//     const isTagger = id === taggerId;
+//     const isPlayerHost = player.isHost;
+
+//     const playerElement = document.createElement("div");
+//     playerElement.className = `player-item ${isMe ? "you" : ""} ${
+//       isTagger ? "tagger" : ""
+//     }`;
+
+//     const colorElement = document.createElement("div");
+//     colorElement.className = "player-color";
+//     colorElement.style.backgroundColor = player.color;
+
+//     const nameElement = document.createElement("div");
+//     nameElement.className = "player-name";
+//     nameElement.textContent = `${player.name}${isMe ? " (You)" : ""}${
+//       isTagger ? " (IT)" : ""
+//     }${isPlayerHost ? " (Host)" : ""}`;
+
+//     const scoreElement = document.createElement("div");
+//     scoreElement.className = "player-score";
+//     scoreElement.textContent = player.score !== undefined ? player.score : 0;
+
+//     if (isHost && !isMe) {
+//       const kickBtn = document.createElement("button");
+//       kickBtn.className = "kick-btn";
+//       kickBtn.textContent = "×";
+//       kickBtn.title = "Remove player";
+//       kickBtn.addEventListener("click", () => {
+//         selectedPlayerToKick = id;
+//         confirmKickPlayer();
+//       });
+//       playerElement.appendChild(kickBtn);
+//     }
+
+//     playerElement.appendChild(colorElement);
+//     playerElement.appendChild(nameElement);
+//     playerElement.appendChild(scoreElement);
+
+//     playersList.appendChild(playerElement);
+//   }
+
+//   startBtn.style.display = isHost ? "block" : "none";
+// }
 function updatePlayersList() {
   playersList.innerHTML = "";
 
@@ -1052,9 +1436,23 @@ function updatePlayersList() {
       kickBtn.className = "kick-btn";
       kickBtn.textContent = "×";
       kickBtn.title = "Remove player";
-      kickBtn.addEventListener("click", () => {
+      kickBtn.addEventListener("click", (e) => {
+        // Stop event bubbling
+        e.stopPropagation();
+
+        // Select the player and open modal
         selectedPlayerToKick = id;
-        confirmKickPlayer();
+        openKickPlayerModal();
+
+        // Pre-select this player in the modal
+        const playerItems = document.querySelectorAll(".kick-player-item");
+        playerItems.forEach((item) => {
+          if (item.dataset.playerId === id) {
+            item.classList.add("selected");
+          } else {
+            item.classList.remove("selected");
+          }
+        });
       });
       playerElement.appendChild(kickBtn);
     }
@@ -1068,7 +1466,6 @@ function updatePlayersList() {
 
   startBtn.style.display = isHost ? "block" : "none";
 }
-
 function gameLoop(timestamp) {
   if (!lastUpdateTime) lastUpdateTime = timestamp;
   const deltaTime = timestamp - lastUpdateTime;
@@ -1081,7 +1478,8 @@ function gameLoop(timestamp) {
 
   requestAnimationFrame(gameLoop);
 }
-
+let lastSendTime = 0;
+const SEND_INTERVAL = 50;
 function update() {
   if (!gameRunning || !myId || !players[myId]) return;
 
@@ -1089,7 +1487,11 @@ function update() {
   let newX = players[myId].x;
   let newY = players[myId].y;
 
-  if (boostedPlayers[myId] && boostedPlayers[myId].type === "frozen") {
+  if (
+    (boostedPlayers[myId] && boostedPlayers[myId].type === "frozen") ||
+    players[myId].frozen ||
+    players[myId].is_dead
+  ) {
     return;
   }
 
@@ -1131,13 +1533,17 @@ function update() {
     players[myId].x = newX;
     players[myId].y = newY;
 
-    ws.send(
-      JSON.stringify({
-        type: "move",
-        x: players[myId].x,
-        y: players[myId].y,
-      })
-    );
+    const now = Date.now();
+    if (now - lastSendTime > SEND_INTERVAL) {
+      ws.send(
+        JSON.stringify({
+          type: "move",
+          x: players[myId].x,
+          y: players[myId].y,
+        })
+      );
+      lastSendTime = now;
+    }
   }
 }
 
@@ -1174,8 +1580,17 @@ function render() {
   }
 
   for (const id in players) {
-    const player = players[id];
+    if (players[id].is_dead) continue;
 
+    const player = players[id];
+    if (
+      player.x < -PLAYER_SIZE * 2 ||
+      player.x > canvasWidth + PLAYER_SIZE * 2 ||
+      player.y < -PLAYER_SIZE * 2 ||
+      player.y > canvasHeight + PLAYER_SIZE * 2
+    ) {
+      continue;
+    }
     ctx.beginPath();
     ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
     ctx.ellipse(
@@ -1365,6 +1780,7 @@ function showNotification(message, duration = 3000) {
 }
 
 function playSound(type) {
+  if (!soundEnabled) return;
   const sounds = {
     tag: "/sounds/spongbob.mp3",
     gameStart: "/sounds/amongus.mp3",
@@ -1499,8 +1915,8 @@ function createSoundPanel() {
     
     .sound-panel-toggle {
       position: fixed;
-      bottom: 20px;
-      right: 20px;
+      bottom: 40px;
+      right: 40px;
       width: 40px;
       height: 40px;
       border-radius: 50%;

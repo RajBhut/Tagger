@@ -17,6 +17,7 @@ const PLAYER_SIZE = 30;
 const BOOSTER_SIZE = 20;
 const BOOSTER_DURATION = 5;
 const BOOSTER_SPAWN_INTERVAL = 15;
+const MAX_TAGED_TIME = 8;
 function getRandomColor() {
   const colors = [
     "#3498db",
@@ -58,6 +59,8 @@ wss.on("connection", (ws) => {
           tagcooldown: false,
           hostId: playerId,
           gameInterval: null,
+          tt: 8,
+          dp: {},
         };
 
         playerRoom = roomCode;
@@ -72,6 +75,8 @@ wss.on("connection", (ws) => {
           isHost: true,
           sm: 1.5,
           speedboosted: false,
+          frozen: false,
+          is_dead: false,
         };
 
         ws.send(
@@ -323,7 +328,8 @@ wss.on("connection", (ws) => {
         if (
           playerId === rooms[playerRoom].taggerId &&
           rooms[playerRoom].gameRunning &&
-          !rooms[playerRoom].players[playerId].frozen
+          !rooms[playerRoom].players[playerId].frozen &&
+          !rooms[playerRoom].players[playerId].is_dead
         ) {
           for (let pid in rooms[playerRoom].players) {
             if (pid !== rooms[playerRoom].taggerId) {
@@ -339,13 +345,22 @@ wss.on("connection", (ws) => {
                 distance < PLAYER_SIZE * 1.5 &&
                 !rooms[playerRoom].tagcooldown &&
                 !rooms[playerRoom].players[pid].shielded &&
-                !rooms[playerRoom].players[pid].frozen
+                !rooms[playerRoom].players[pid].frozen &&
+                !rooms[playerRoom].dp[pid]
               ) {
+                // Previous tagger gets points based on how quickly they tagged someone
+                const timeHeld = MAX_TAGED_TIME - rooms[playerRoom].tt;
+
+                // Faster tag = more points (max 5 points for immediate tag, min 1 point)
+                const pointsEarned = Math.max(5 - Math.floor(timeHeld / 2), 1);
+
+                rooms[playerRoom].players[rooms[playerRoom].taggerId].score +=
+                  pointsEarned;
                 rooms[playerRoom].players[rooms[playerRoom].taggerId].color =
                   getRandomColor();
-                rooms[playerRoom].players[
-                  rooms[playerRoom].taggerId
-                ].score += 1;
+
+                rooms[playerRoom].tt = MAX_TAGED_TIME;
+
                 rooms[playerRoom].taggerId = pid;
                 rooms[playerRoom].players[pid].color = "#e74c3c";
 
@@ -354,16 +369,18 @@ wss.on("connection", (ws) => {
                   previousTagger: playerId,
                   taggerId: rooms[playerRoom].taggerId,
                   players: sanitizePlayers(rooms[playerRoom].players),
+                  pointsEarned: pointsEarned,
                 });
 
                 broadcastToRoom(playerRoom, {
                   type: "tagged",
                   tagger: rooms[playerRoom].players[playerId].name,
                   tagged: rooms[playerRoom].players[pid].name,
+                  pointsEarned: pointsEarned,
                 });
 
+                // Add tag cooldown
                 rooms[playerRoom].tagcooldown = true;
-
                 setTimeout(() => {
                   if (rooms[playerRoom]) {
                     rooms[playerRoom].tagcooldown = false;
@@ -460,7 +477,7 @@ function applyBoosterEffect(roomCode, playerId, booster) {
             rooms[roomCode].players[id].frozen = true;
 
             const playerOriginalColor = rooms[roomCode].players[id].color;
-            rooms[roomCode].players[id].color = "#00ffff"; // Icy blue
+            rooms[roomCode].players[id].color = "#00ffff";
 
             setTimeout(() => {
               if (rooms[roomCode] && rooms[roomCode].players[id]) {
@@ -660,20 +677,46 @@ function startGame(roomCode) {
 
   rooms[roomCode].gameRunning = true;
   rooms[roomCode].gameTime = GAME_DURATION;
+  rooms[roomCode].tt = MAX_TAGED_TIME; // Reset tag timer
 
+  // Reset all players' positions and properties
   for (let id in rooms[roomCode].players) {
+    // Reset score and speed boost
     rooms[roomCode].players[id].score = 0;
     rooms[roomCode].players[id].speedboosted = false;
+    rooms[roomCode].players[id].speedMultiplier = 1;
+    rooms[roomCode].players[id].shielded = false;
+    rooms[roomCode].players[id].frozen = false;
+
+    // Reset dead status
+    rooms[roomCode].players[id].is_dead = false;
+
+    // Move back to game area (only if they were dead)
+    if (
+      rooms[roomCode].players[id].x === -999 ||
+      rooms[roomCode].players[id].y === -999
+    ) {
+      rooms[roomCode].players[id].x =
+        Math.random() * (CANVAS_WIDTH - PLAYER_SIZE * 2) + PLAYER_SIZE;
+      rooms[roomCode].players[id].y =
+        Math.random() * (CANVAS_HEIGHT - PLAYER_SIZE * 2) + PLAYER_SIZE;
+    }
   }
+
+  // Clear dead players list
+  rooms[roomCode].dp = {};
 
   const playerIds = Object.keys(rooms[roomCode].players);
   rooms[roomCode].taggerId =
     playerIds[Math.floor(Math.random() * playerIds.length)];
 
+  // Set colors for all players
   for (let id in rooms[roomCode].players) {
     rooms[roomCode].players[id].color =
       id === rooms[roomCode].taggerId ? "#e74c3c" : getRandomColor();
   }
+
+  // Rest of your function remains the same
   const initialBoosterDelay = Math.random() * 5000 + 5000;
   rooms[roomCode].boosterTimer = setTimeout(() => {
     createBooster(roomCode);
@@ -692,46 +735,112 @@ function startGame(roomCode) {
       clearInterval(rooms[roomCode].gameInterval);
       return;
     }
-
+    rooms[roomCode].tt--;
+    if (rooms[roomCode].tt <= 10) {
+      const tagger = rooms[roomCode].taggerId;
+      if (
+        rooms[roomCode].players[tagger] &&
+        !rooms[roomCode].players[tagger].is_dead
+      ) {
+        try {
+          rooms[roomCode].players[tagger].ws.send(
+            JSON.stringify({
+              type: "tagCountdown",
+              remainingTime: rooms[roomCode].tt,
+            })
+          );
+        } catch (error) {
+          console.error("Error sending countdown to tagger:", error);
+        }
+      }
+    }
     rooms[roomCode].gameTime--;
 
     broadcastToRoom(roomCode, {
       type: "timer",
       time: rooms[roomCode].gameTime,
     });
+    if (rooms[roomCode].tt <= 0) {
+      let tid = rooms[roomCode].taggerId;
+      rooms[roomCode].dp[tid] = rooms[roomCode].players[tid];
 
+      rooms[roomCode].players[tid].x = -999;
+      rooms[roomCode].players[tid].y = -999;
+      rooms[roomCode].players[tid].is_dead = true;
+      rooms[roomCode].players[tid].color = "#000000"; // Set color to black
+      rooms[roomCode].players[tid].frozen = false; // Ensure they're not frozen
+      rooms[roomCode].tt = MAX_TAGED_TIME;
+
+      broadcastToRoom(roomCode, {
+        type: "playerDied",
+        playerId: tid,
+        playerName: rooms[roomCode].players[tid].name,
+      });
+
+      let dead_player = Object.keys(rooms[roomCode].dp);
+      let other_players = Object.keys(rooms[roomCode].players).filter((id) => {
+        return !rooms[roomCode].dp[id];
+      });
+
+      if (other_players.length <= 1) {
+        endGame(roomCode, "Time's up");
+        return;
+      }
+
+      let random_player_id =
+        other_players[Math.floor(Math.random() * other_players.length)];
+
+      rooms[roomCode].taggerId = random_player_id;
+      rooms[roomCode].players[random_player_id].color = "#e74c3c";
+
+      broadcastToRoom(roomCode, {
+        type: "tagUpdate",
+        previousTagger: tid,
+        taggerId: random_player_id,
+        players: sanitizePlayers(rooms[roomCode].players),
+      });
+    }
     if (rooms[roomCode].gameTime <= 0) {
+      rooms[roomCode].tt = MAX_TAGED_TIME;
       endGame(roomCode, "Time's up");
     }
   }, 1000);
 }
-
+// In your endGame function:
 function endGame(roomCode, reason) {
   if (!rooms[roomCode] || !rooms[roomCode].gameRunning) return;
 
   clearInterval(rooms[roomCode].gameInterval);
+  // Clear other timers...
 
-  if (rooms[roomCode].boosterTimer) {
-    clearTimeout(rooms[roomCode].boosterTimer);
-  }
-
-  if (rooms[roomCode].boosterTimeout) {
-    clearTimeout(rooms[roomCode].boosterTimeout);
-  }
-
-  if (rooms[roomCode].currentBooster) {
-    delete rooms[roomCode].currentBooster;
-  }
   rooms[roomCode].gameRunning = false;
 
   const scores = {};
+
+  // Add survival bonus
+  const survivingPlayers = Object.keys(rooms[roomCode].players).filter(
+    (id) => !rooms[roomCode].dp[id]
+  );
+
+  // 10 points survival bonus
+  const SURVIVAL_BONUS = 10;
+
   for (let id in rooms[roomCode].players) {
+    let score = rooms[roomCode].players[id].score;
+
+    // Add survival bonus
+    if (!rooms[roomCode].dp[id]) {
+      score += SURVIVAL_BONUS;
+    }
+
     scores[id] = {
       name: rooms[roomCode].players[id].name,
-      score: rooms[roomCode].players[id].score,
+      score: score,
+      survived: !rooms[roomCode].dp[id],
     };
   }
 
+  // Calculate winners
   let highestScore = -1;
   let winners = [];
 
@@ -752,9 +861,14 @@ function endGame(roomCode, reason) {
     winnerNames: winners.map(
       (id) => rooms[roomCode].players[id]?.name || "Unknown"
     ),
+    survivingPlayers: survivingPlayers,
+    survivalBonus: SURVIVAL_BONUS,
   });
 
   rooms[roomCode].gameTime = GAME_DURATION;
+
+  // Reset dead players for next game
+  rooms[roomCode].dp = {};
 }
 
 // Start the server

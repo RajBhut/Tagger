@@ -3,67 +3,82 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Multiplayer Tag Game</title>
+    <title>Tagger - Multiplayer Tag Game</title>
     <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="style.css" />
+    <meta
+      name="description"
+      content="A fun multiplayer tag game where you chase and tag other players to earn points!"
+    />
   </head>
   <body>
+    <!-- Welcome Screen -->
     <div id="welcome-screen" class="welcome-container">
-      <h1>Tagger</h1>
-      <p class="tagline">A multiplayer tag game</p>
+      <div class="logo">
+        <h1 class="welcome-title">Tagger</h1>
+        <p class="tagline">The Ultimate Multiplayer Tag Game</p>
+      </div>
 
-      <div class="welcome-options">
-        <div class="option-card">
-          <h2>Create Room</h2>
-          <div class="input-group">
-            <input
-              type="text"
-              id="createName"
-              placeholder="Your name"
-              maxlength="15"
-            />
-            <button id="createRoomBtn" class="btn-primary">Create</button>
+      <div class="welcome-content">
+        <div class="welcome-options">
+          <div class="option-card">
+            <h2>Create a Room</h2>
+            <div class="input-group">
+              <input
+                type="text"
+                id="createName"
+                placeholder="Your name"
+                maxlength="15"
+              />
+              <button id="createRoomBtn" class="btn-primary">
+                Create Room
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div class="option-card">
-          <h2>Join Room</h2>
-          <div class="input-group">
-            <input
-              type="text"
-              id="joinName"
-              placeholder="Your name"
-              maxlength="15"
-            />
-            <input
-              type="text"
-              id="roomCode"
-              placeholder="Room code"
-              maxlength="6"
-            />
-            <button id="joinRoomBtn" class="btn-primary">Join</button>
+          <div class="option-card">
+            <h2>Join a Room</h2>
+            <div class="input-group">
+              <input
+                type="text"
+                id="joinName"
+                placeholder="Your name"
+                maxlength="15"
+              />
+              <input
+                type="text"
+                id="roomCode"
+                placeholder="Room code"
+                maxlength="6"
+              />
+              <button id="joinRoomBtn" class="btn-primary">Join Game</button>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- Game Screen -->
     <div id="game-screen" class="game-container hidden">
       <div class="room-info">
-        <span>Room: <span id="current-room-code">-</span></span>
-        <button id="copy-code-btn" class="btn-small">Copy</button>
+        <div class="room-code">
+          Room Code: <span id="current-room-code"></span>
+          <button id="copy-code-btn" class="btn-small">Copy</button>
+        </div>
+        <div class="status-message" id="status-message">
+          Waiting for players...
+        </div>
       </div>
 
       <div class="game-header">
-        <h1>Tagger</h1>
         <div class="game-info">
-          <div class="timer">
-            <span id="timer-label">Time:</span>
-            <span id="timer-value">60</span>
+          <div class="timer">Time: <span id="timer-value">60</span>s</div>
+          <div class="player-controls">
+            <button id="kickBtn" class="btn-small">Kick Player</button>
           </div>
-          <div id="status-message">Waiting for players...</div>
         </div>
       </div>
 
@@ -72,28 +87,25 @@
       </div>
 
       <div class="controls">
-        <div class="control-group">
-          <input
-            type="text"
-            id="playerName"
-            placeholder="Enter your name"
-            maxlength="15"
-          />
-          <button id="setNameBtn">Set Name</button>
-        </div>
         <button id="startBtn" class="btn-primary">Start Game</button>
+        <div class="control-group">
+          <button id="soundToggleBtn" class="btn-small">Sound: ON</button>
+        </div>
       </div>
-      <div class="controls">
+
+      <div class="chat-controls">
         <div class="control-group">
           <input
-            type="text"
             id="msg"
-            placeholder="Enter your Msg"
+            type="text"
+            placeholder="Type a message..."
             maxlength="150"
           />
-          <button id="sendmsg">Send Msg</button>
+          <button id="sendmsg" class="btn-small">Send</button>
         </div>
+        <div id="chatMessages" class="chat-messages"></div>
       </div>
+
       <div class="scoreboard">
         <h2>Players</h2>
         <div id="players-list"></div>
@@ -102,16 +114,23 @@
       <div id="notification" class="notification hidden"></div>
     </div>
 
+    <!-- Game Over Modal -->
     <div id="gameOver" class="modal hidden">
       <div class="modal-content">
+        <span class="close-button" id="closeModal">&times;</span>
         <h2>Game Over</h2>
-        <div id="gameOverReason"></div>
-        <div id="gameOverScores"></div>
-        <div id="winner"></div>
-        <button id="closeModal" class="btn-primary">OK</button>
+        <p id="winner" class="winner-announcement"></p>
+
+        <div id="game-stats" class="game-stats-container"></div>
+
+        <div class="modal-buttons">
+          <button id="playAgainBtn" class="btn-primary">Play Again</button>
+          <button id="shareScoreBtn" class="btn-secondary">Share Score</button>
+        </div>
       </div>
     </div>
 
+    <!-- Kick Player Modal -->
     <div id="kickPlayerModal" class="modal hidden">
       <div class="modal-content">
         <h2>Remove Player</h2>
@@ -124,14 +143,43 @@
       </div>
     </div>
 
+    <!-- Controls Explanation -->
+    <div class="controls-explanation hidden" id="controlsExplanation">
+      <div class="controls-inner">
+        <h3>Controls:</h3>
+        <p><strong>Desktop:</strong> Arrow keys or WASD</p>
+        <p><strong>Mobile:</strong> On-screen controls</p>
+        <button class="btn-small" id="closeControls">Got it!</button>
+      </div>
+    </div>
+
     <div class="instructions">
       <h3>How to Play:</h3>
       <ul>
-        <li>Use arrow keys to move your player</li>
+        <li>Use arrow keys or on-screen controls to move your player</li>
         <li>If you are the tagger (red), chase and tag other players</li>
-        <li>If you tag someone, they become the new tagger</li>
-        <li>You get 1 point each time you tag someone</li>
-        <li>The player with the most points at the end wins!</li>
+        <li>If you don't tag someone within 10 seconds, you're eliminated!</li>
+        <li>
+          <strong>Earn Points:</strong>
+          <ul>
+            <li>Quick tags earn up to 5 points</li>
+            <li>Survive until the end for a +10 point bonus</li>
+          </ul>
+        </li>
+        <li>
+          Collect power-ups for special abilities:
+          <ul>
+            <li><span style="color: #00ff00">●</span> Speed - Move faster</li>
+            <li>
+              <span style="color: #0000ff">●</span> Shield - Can't be tagged
+            </li>
+            <li>
+              <span style="color: #00ffff">●</span> Freeze - Freeze other
+              players
+            </li>
+          </ul>
+        </li>
+        <li>Last player standing or highest score wins!</li>
       </ul>
     </div>
 
@@ -139,9 +187,13 @@
       <p>
         Crafted by
         <a href="https://github.com/RajBhut" target="_blank">RajBhut</a>
+        | <a href="#" id="showHelp">Help</a>
       </p>
     </footer>
 
-    <script type="module" src="script.js"></script>
+    <!-- Sound effects (hidden) -->
+    <div id="sound-container" style="display: none"></div>
+
+    <script src="script.js"></script>
   </body>
 </html>
