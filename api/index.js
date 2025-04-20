@@ -10,14 +10,14 @@ app.use(cors({ origin: "*" }));
 
 const rooms = {};
 
-const GAME_DURATION = 60;
+const GAME_DURATION = 100;
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const PLAYER_SIZE = 30;
 const BOOSTER_SIZE = 20;
 const BOOSTER_DURATION = 5;
 const BOOSTER_SPAWN_INTERVAL = 15;
-const MAX_TAGED_TIME = 8;
+const MAX_TAGED_TIME = 30;
 function getRandomColor() {
   const colors = [
     "#3498db",
@@ -50,15 +50,27 @@ wss.on("connection", (ws) => {
       const data = JSON.parse(msg);
 
       if (data.type === "createRoom") {
+        let gm_d = data.gd;
+        let tag_d = data.td;
+        if (!gm_d || gm_d > 300 || gm_d < 50) {
+          gm_d = 60;
+        }
+        if (!tag_d || tag_d > 50 || tag_d < 10) {
+          tag_d = 10;
+        }
+
         const roomCode = generateRoomCode();
         rooms[roomCode] = {
           players: {},
           taggerId: null,
           gameRunning: false,
-          gameTime: GAME_DURATION,
+          gameTime: gm_d,
+          tageTime: tag_d,
           tagcooldown: false,
           hostId: playerId,
           gameInterval: null,
+
+          GD: gm_d,
           tt: 8,
           dp: {},
         };
@@ -676,19 +688,16 @@ function startGame(roomCode) {
   if (!rooms[roomCode] || rooms[roomCode].gameRunning) return;
 
   rooms[roomCode].gameRunning = true;
-  rooms[roomCode].gameTime = GAME_DURATION;
-  rooms[roomCode].tt = MAX_TAGED_TIME; // Reset tag timer
+  rooms[roomCode].gameTime = rooms[roomCode].GD;
+  rooms[roomCode].tt = rooms[roomCode].tag_d;
 
-  // Reset all players' positions and properties
   for (let id in rooms[roomCode].players) {
-    // Reset score and speed boost
     rooms[roomCode].players[id].score = 0;
     rooms[roomCode].players[id].speedboosted = false;
     rooms[roomCode].players[id].speedMultiplier = 1;
     rooms[roomCode].players[id].shielded = false;
     rooms[roomCode].players[id].frozen = false;
 
-    // Reset dead status
     rooms[roomCode].players[id].is_dead = false;
 
     // Move back to game area (only if they were dead)
@@ -710,13 +719,11 @@ function startGame(roomCode) {
   rooms[roomCode].taggerId =
     playerIds[Math.floor(Math.random() * playerIds.length)];
 
-  // Set colors for all players
   for (let id in rooms[roomCode].players) {
     rooms[roomCode].players[id].color =
       id === rooms[roomCode].taggerId ? "#e74c3c" : getRandomColor();
   }
 
-  // Rest of your function remains the same
   const initialBoosterDelay = Math.random() * 5000 + 5000;
   rooms[roomCode].boosterTimer = setTimeout(() => {
     createBooster(roomCode);

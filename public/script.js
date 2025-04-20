@@ -22,7 +22,8 @@ const createRoomBtn = document.getElementById("createRoomBtn");
 const joinRoomBtn = document.getElementById("joinRoomBtn");
 const currentRoomCode = document.getElementById("current-room-code");
 const copyCodeBtn = document.getElementById("copy-code-btn");
-
+const game_duration_inp = document.getElementById("game_duration");
+const tag_duration_inp = document.getElementById("tag_duration");
 const kickPlayerModal = document.getElementById("kickPlayerModal");
 const kickPlayersList = document.getElementById("kickPlayersList");
 const confirmKickBtn = document.getElementById("confirmKickBtn");
@@ -114,8 +115,20 @@ function initApp() {
 
 function createRoom() {
   const name = createNameInput.value.trim();
+  let gd = Number(game_duration_inp.value);
+  let td = Number(tag_duration_inp.value);
+
   if (!name) {
     showNotification("Please enter your name");
+    return;
+  }
+  if (gd == 0 || td == 0) {
+    if (gd == 0) gd = 60;
+    if (td == 0) td = 10;
+    showNotification("Started with default duration");
+  }
+  if (gd > 500 || td > 50) {
+    showNotification("group duration max: 500sec tag duration max:50sec.");
     return;
   }
 
@@ -124,6 +137,8 @@ function createRoom() {
       JSON.stringify({
         type: "createRoom",
         name,
+        gd,
+        td,
       })
     );
   });
@@ -1310,7 +1325,6 @@ function setupEventListeners() {
     const winnerText = document.getElementById("winner").textContent;
     const shareText = `I just played Tagger! ${winnerText} Check it out at https://tagger.nxog.tech`;
 
-    // Try to use Web Share API if available
     if (navigator.share) {
       navigator
         .share({
@@ -1319,7 +1333,7 @@ function setupEventListeners() {
         })
         .catch((err) => {
           console.error("Error sharing:", err);
-          // Fallback to clipboard
+
           copyToClipboard(shareText);
           showNotification("Score copied to clipboard!");
         });
@@ -1354,55 +1368,6 @@ function setPlayerName(name) {
   }
 }
 
-// function updatePlayersList() {
-//   playersList.innerHTML = "";
-
-//   for (const id in players) {
-//     const player = players[id];
-//     const isMe = id === myId;
-//     const isTagger = id === taggerId;
-//     const isPlayerHost = player.isHost;
-
-//     const playerElement = document.createElement("div");
-//     playerElement.className = `player-item ${isMe ? "you" : ""} ${
-//       isTagger ? "tagger" : ""
-//     }`;
-
-//     const colorElement = document.createElement("div");
-//     colorElement.className = "player-color";
-//     colorElement.style.backgroundColor = player.color;
-
-//     const nameElement = document.createElement("div");
-//     nameElement.className = "player-name";
-//     nameElement.textContent = `${player.name}${isMe ? " (You)" : ""}${
-//       isTagger ? " (IT)" : ""
-//     }${isPlayerHost ? " (Host)" : ""}`;
-
-//     const scoreElement = document.createElement("div");
-//     scoreElement.className = "player-score";
-//     scoreElement.textContent = player.score !== undefined ? player.score : 0;
-
-//     if (isHost && !isMe) {
-//       const kickBtn = document.createElement("button");
-//       kickBtn.className = "kick-btn";
-//       kickBtn.textContent = "×";
-//       kickBtn.title = "Remove player";
-//       kickBtn.addEventListener("click", () => {
-//         selectedPlayerToKick = id;
-//         confirmKickPlayer();
-//       });
-//       playerElement.appendChild(kickBtn);
-//     }
-
-//     playerElement.appendChild(colorElement);
-//     playerElement.appendChild(nameElement);
-//     playerElement.appendChild(scoreElement);
-
-//     playersList.appendChild(playerElement);
-//   }
-
-//   startBtn.style.display = isHost ? "block" : "none";
-// }
 function updatePlayersList() {
   playersList.innerHTML = "";
 

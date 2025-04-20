@@ -15,7 +15,7 @@
     />
   </head>
   <body>
-    <!-- Welcome Screen -->
+    <div id="notification" class="notification hidden"></div>
     <div id="welcome-screen" class="welcome-container">
       <div class="logo">
         <h1 class="welcome-title">Tagger</h1>
@@ -32,6 +32,20 @@
                 id="createName"
                 placeholder="Your name"
                 maxlength="15"
+              />
+              <input
+                type="number"
+                id="game_duration"
+                placeholder="Game Duration"
+                max="300"
+                min="50"
+              />
+              <input
+                type="number"
+                id="tag_duration"
+                placeholder="Tag Duration"
+                min="10"
+                max="50"
               />
               <button id="createRoomBtn" class="btn-primary">
                 Create Room
@@ -111,7 +125,7 @@
         <div id="players-list"></div>
       </div>
 
-      <div id="notification" class="notification hidden"></div>
+      <!-- <div id="notification" class="notification hidden"></div> -->
     </div>
 
     <!-- Game Over Modal -->
